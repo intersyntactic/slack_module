@@ -1,0 +1,19 @@
+name: intersyntactic_slack
+description: >
+  A Slack adapter for intersyntactic. Mentions and threads in Slack become
+  turns of a run on an intersyntactic agent, with any model the sender has
+  credentials for. Follows intersyntactic's "plugins live in their own repos"
+  shape: this package depends on intersyntactic's public packages, not the
+  other way around.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  crypto: ^3.0.3
+
+dev_dependencies:
+  lints: ^6.1.0
+  test: ^1.25.0
