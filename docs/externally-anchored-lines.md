@@ -20,9 +20,12 @@ adapter. The Slack case is the concrete instance below; the type generalises.
 2. **The authoritative node store for an externally-anchored line is the external
    source itself.** Slack is the source of truth for Slack threads and the Slack KB.
    The local tree is a mirror, kept fresh by the event stream.
-3. **Edits and reactions are first-class in-stream signals**, not display state.
-   Edits create sibling branches via the tree model (`authority.md` §5); reactions
-   are the agent's one-click consent mechanism.
+3. **All contributions to a line are node appends.** Edits, deletions, and
+   reactions are not special signals; they are instances of this primitive,
+   with particular node-shapes. The state model has no mutation; the head
+   serialises append-order. §1 states this; §3 names the plugin-level
+   consequence (a plugin's manifest declares which node-shapes the agent and
+   the seats may each append).
 4. **Shared knowledge-base lives in a `#kb` channel**, one message per entry.
    Universal across Slack plans; permissioned by Slack's own channel membership.
 5. **Any user may call `remember`.** The channel is the ACL. Slack's edit history
@@ -53,6 +56,16 @@ union merges); **H** holds (owner CASes the head); **E** holds and matters more
 here than for a worktree line, because the "world" (the external SaaS) is where
 `(line, epoch)` as a far-side mark actually fences a zombie's writes.
 
+**The state model is pure-append.** Every touch on a line is a node written
+into its tree. The head's role is to serialise append-order; nothing is ever
+mutated. "Edit," "delete," and "reaction" are not special events in the state
+model — they are node-shapes whose semantics are supplied by downstream readers
+(edit chains collapse to latest text; tombstones hide a branch; reactions
+annotate their target). The §2 table catalogues the Slack-specific shape
+vocabulary; other sources substitute their own. The human-side API of a plugin
+is the subset of node-shapes humans can append; the agent-side API is the
+subset the agent can append. §3 names this as the plugin manifest.
+
 ## 2. The pattern, in three pieces
 
 ```
@@ -81,9 +94,9 @@ doorbells it receives. The mirror is the line's local node store.
 
 ### Edits, deletes, reactions as nodes
 
-The grow-only invariant doesn't break under external edits because edits don't
-rewrite the local tree; they add. The mapping, for Slack (other sources map by
-analogy):
+Per §1, every event is an append. The table below is not a special-case
+translation layer; it is the Slack-side shape vocabulary. Other sources
+substitute their own node-shapes under the same rule. The mapping, for Slack:
 
 | External event | Node written |
 |---|---|
@@ -98,23 +111,44 @@ chains to the latest text, skip tombstoned branches, surface reactions as
 annotations on their targets. Same shape as git's working-copy view derived from
 the object store, same shape as `authority.md` §5's first-parent walk.
 
-## 3. The consent primitive: reactions as one-click questions
+## 3. The plugin manifest: node-shape sets
 
-Twice in the Slack design, the right mechanism was "the agent asks a yes/no via
-a reaction." Once for **edit-replay** ("you edited X; redo my answer?" — 🔄),
-once for **proactive-remember** ("save this to the channel KB?" — 💾). It
-generalises: any single-user-approval the agent needs becomes a reaction prompt
-on a specific message, with the semantics "the user who originated the subject
-message adds this emoji within some window = yes."
+Per §1, a line's state is a tree of appended nodes. A plugin defines the typed
+**node-shape vocabulary** of its lines, and declares in its manifest which
+subsets of that vocabulary are appendable by which party:
 
-This is cheaper than a message post, visible in-channel without clutter, and
-already lives in the event stream the receiver is subscribed to. It makes the
-agent's requests *visible* without being noisy, and makes refusal the default
-(no reaction = no action).
+- The **agent-facing set** — node-shapes the agent can append from this
+  plugin's restricted kit. For Slack: `message`, `edit`, `reaction`,
+  `tombstone`. These are what `slack.chat_post`, `slack.chat_update`,
+  `slack.react`, `slack.delete` write.
+- The **seat-facing set** — node-shapes humans can append, surfaced by the
+  plugin's UI. For Slack, the UI is Slack itself: the seat-facing set is
+  `{message, edit, reaction, tombstone}` by Slack's own affordances.
+- The **ambient set** — node-shapes written by the external source without
+  either party's action (e.g. a presence change). Often empty.
 
-**Design implication:** the restricted Slack kit must include
-`slack.react(message_ts, emoji)` as a first-class tool, not an advanced
-feature. The whole class of one-click agent questions depends on it.
+Making these sets first-class in the manifest is what makes a plugin's surface
+*audit-able* rather than ad-hoc: "what can the agent do in this plugin" and
+"what can seats do in this plugin" become formal, declared questions over the
+same node vocabulary. A plugin that produces content on behalf of humans (an
+analytics plugin whose seats only approve or correct) has a near-empty
+seat-facing set; a plugin where humans ARE the content producers (Slack) has
+seat-facing cardinality equal to the UI's native affordances.
+
+**Design implication:** the Slack plugin's manifest must list `reaction` in the
+agent-facing set so the restricted kit includes `slack.react(message_ts,
+emoji)` as a first-class tool, not an advanced feature. The whole class of
+agent-initiated consent prompts — the agent appends a question-shaped node and
+a seat appends a `reaction`-shaped node under it, with "refusal is the
+default" following from "no append = no node"; §4.1 and §4.2 are instances —
+depends on it being in both sets.
+
+**Where this meets `authority.md`:** N's "any process writes a node, union
+merges" is unchanged; the manifest doesn't gate writes, it describes the
+expected vocabulary. A node whose shape isn't in any declared set is still
+written; it just has no reader that knows what to do with it. This matters for
+forward-compat: a plugin that learns to emit a new shape adds it to its
+manifest; older readers see the node as opaque, newer readers interpret it.
 
 ## 4. Three concrete instances
 
@@ -209,13 +243,31 @@ to call `run_turn` on me, and whose events am I expecting from it?" so a
 compromised shim can't ask the receiver to run arbitrary work. Receiver pins
 `(shim_endpoint, shim_bearer, allowed_external_actors)` at registration.
 
+In the vocabulary of §7, the roster IS the orchestrator state. It exists
+because Slack's servers POST to one URL per workspace and cannot dial out to
+discover a user's receiver. Receivers in `intersyntactic_relay` dial out and
+need no equivalent roster. §7.1 generalises this as a design axis.
+
 ## 7. Open questions
 
 - **The `/design-temper` list** from this session:
-    1. **Edge of the shim's trust.** Can a workspace shim be hosted by someone
-       other than you and still be acceptable, given it holds signing secrets
-       and the routing table? What's the minimum audit a user should do before
-       pointing their receiver at a stranger's shim?
+    1. **Identity resolution when the sender can't dial out.** This is a
+       design axis, not a wart to resolve. An orchestrator (shim, in Slack's
+       case) exists exactly when the external sender is physically incapable
+       of resolving logical→physical identity itself: Slack's servers POST to
+       one URL per workspace and won't dial out, so the `(workspace,
+       slack_user_id) → (receiver_endpoint, bearer)` map must live somewhere
+       persistent. Receivers that dial out (via `intersyntactic_relay`) need
+       no equivalent. The axis — *bootstrapped-from-inside pipelines vs
+       sender-can't-dial-out systems* — determines whether an adapter needs
+       an orchestrator at all. Open sub-questions: where does the map live —
+       the shim (as §6); a meta-line (recursive, since its routing has to
+       live somewhere); Slack itself as a profile field (Slack as config
+       store the user edits with their mouse); a well-known per-workspace
+       endpoint (which IS the routing table, just hosted elsewhere)? And
+       given the shim holds signing secrets plus the routing table, what's
+       the minimum audit a user should do before pointing their receiver at
+       a stranger's shim?
     2. **Reaction consent window.** How long is a reaction prompt live? A
        reaction added days later shouldn't trigger a stale turn. Default
        proposal: 10 minutes, surfaced in the ephemeral message's text.
