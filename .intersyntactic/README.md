@@ -1,0 +1,46 @@
+# .intersyntactic/
+
+Plugin manifest for `intersyntactic_slack`. Discoverable by intersyntactic at
+wire-up time; versioned with the code (not with the user's home-pinned
+runtime state, which lives in `~/.intersyntactic/lines/<line_id>/`).
+
+See [`manifest.json`](./manifest.json) for the declared shape, and
+[`../docs/externally-anchored-lines.md`](../docs/externally-anchored-lines.md)
+§3 for what the fields mean.
+
+## Format
+
+JSON. Chosen over:
+
+- **YAML** — parser-footgun jungle (the "Norway problem" is live: `no` parses
+  as `false` in YAML 1.1), weak tooling guarantees across implementations.
+- **Typed Dart source** — not consumable by other-language tooling at wire-up
+  time. The manifest is read by intersyntactic (upstream of this package)
+  before anything in this package runs.
+
+The trade-off is no inline comments. This README absorbs the explanations the
+file would otherwise carry.
+
+## Scope of v0.1
+
+Node-shape vocabulary, the three sets (`agent_facing` / `seat_facing` /
+`ambient`), the `restricted_kit` mapping to Dart methods on `SlackClient`, and
+an explicit `gaps` section for declared-but-unimplemented shapes. No version
+field, no dependencies, no line-id shape — add when a reader needs them.
+
+## Known gap (v0.1)
+
+`reaction` is in `agent_facing` but `restricted_kit.reaction` is `null`.
+`SlackClient` has no `chatReact` / `reactionsAdd` method yet. §3's design
+implication requires one; adding it is a precondition for the consent-shaped
+turns in §4.1 (edit-replay 🔄) and §4.2 (proactive-remember 💾). The manifest
+reflects this honestly rather than listing a method that doesn't exist.
+
+The gap is tracked as a code task; the manifest is the artifact that surfaced
+it. If this is the kind of thing the manifest earns its keep by catching, good.
+
+## Where runtime state lives (not here)
+
+Per `../docs/externally-anchored-lines.md` §1: a line's writable state (lock,
+mirror, head) lives under `~/.intersyntactic/lines/<line_id>/`, not in-repo.
+The in-repo `.intersyntactic/` carries declarative plugin shape only.

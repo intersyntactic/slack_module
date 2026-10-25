@@ -1,0 +1,53 @@
+{
+  "name": "intersyntactic_slack",
+  "node_shapes": {
+    "message": {
+      "description": "A top-level or threaded message. The primary content node.",
+      "fields": {
+        "text": "string",
+        "author": "slack_user_id | agent_id",
+        "ts": "slack_timestamp"
+      }
+    },
+    "edit": {
+      "description": "Replaces a prior message in the derived current-state view. The replaced node is retained; readers walk edit chains to resolve latest text.",
+      "fields": {
+        "replaces": "node_id",
+        "text": "string",
+        "author": "slack_user_id | agent_id",
+        "ts": "slack_timestamp"
+      }
+    },
+    "reaction": {
+      "description": "An emoji annotation on a target node. Also the carrier of agent-initiated consent (docs/externally-anchored-lines.md §3): the agent appends a question-shaped message, a seat appends a reaction under it, refusal is the default (no reaction = no node).",
+      "fields": {
+        "emoji": "string",
+        "target": "node_id",
+        "author": "slack_user_id",
+        "ts": "slack_timestamp"
+      }
+    },
+    "tombstone": {
+      "description": "Marks a branch as deleted. Readers skip tombstoned branches when deriving current state.",
+      "fields": {
+        "target": "node_id",
+        "author": "slack_user_id | agent_id",
+        "ts": "slack_timestamp"
+      }
+    }
+  },
+  "sets": {
+    "agent_facing": ["message", "edit", "reaction", "tombstone"],
+    "seat_facing": ["message", "edit", "reaction", "tombstone"],
+    "ambient": []
+  },
+  "restricted_kit": {
+    "message": "SlackClient.chatPostMessage",
+    "edit": "SlackClient.chatUpdate",
+    "reaction": null,
+    "tombstone": "SlackClient.chatDelete"
+  },
+  "gaps": {
+    "reaction": "SlackClient has no chatReact / reactionsAdd method yet. docs/externally-anchored-lines.md §3's design implication requires one; adding it is a precondition for the consent-shaped turns in §4.1 (edit-replay) and §4.2 (proactive-remember). The manifest declares the shape honestly rather than listing a method that does not exist."
+  }
+}
