@@ -74,6 +74,29 @@ void main() {
       });
     });
 
+    test('reactionsAdd posts to reactions.add with channel/timestamp/name',
+        () async {
+      final fake = FakeSender();
+      final client = SlackClient(token: 'xoxb-X', sender: fake.send);
+      fake.respondOk(const {});
+
+      await client.reactionsAdd(
+        channel: 'C1',
+        ts: '1700000000.000500',
+        name: 'arrows_counterclockwise',
+      );
+
+      final req = fake.seen.single;
+      expect(req.method, 'POST');
+      expect(req.url.toString(), endsWith('/reactions.add'));
+      expect(req.headers['Authorization'], 'Bearer xoxb-X');
+      expect(jsonDecode(utf8.decode(req.body)), {
+        'channel': 'C1',
+        'timestamp': '1700000000.000500',
+        'name': 'arrows_counterclockwise',
+      });
+    });
+
     test('conversationsReplies pages through next_cursor', () async {
       final fake = FakeSender();
       final client = SlackClient(token: 'xoxb-X', sender: fake.send);

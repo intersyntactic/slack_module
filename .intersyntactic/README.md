@@ -24,20 +24,11 @@ file would otherwise carry.
 ## Scope of v0.1
 
 Node-shape vocabulary, the three sets (`agent_facing` / `seat_facing` /
-`ambient`), the `restricted_kit` mapping to Dart methods on `SlackClient`, and
-an explicit `gaps` section for declared-but-unimplemented shapes. No version
-field, no dependencies, no line-id shape — add when a reader needs them.
-
-## Known gap (v0.1)
-
-`reaction` is in `agent_facing` but `restricted_kit.reaction` is `null`.
-`SlackClient` has no `chatReact` / `reactionsAdd` method yet. §3's design
-implication requires one; adding it is a precondition for the consent-shaped
-turns in §4.1 (edit-replay 🔄) and §4.2 (proactive-remember 💾). The manifest
-reflects this honestly rather than listing a method that doesn't exist.
-
-The gap is tracked as a code task; the manifest is the artifact that surfaced
-it. If this is the kind of thing the manifest earns its keep by catching, good.
+`ambient`), and the `restricted_kit` mapping to Dart methods on `SlackClient`.
+No version field, no dependencies, no line-id shape — add when a reader needs
+them. (An earlier draft also carried a `gaps` section; it fired exactly once —
+caught `reactionsAdd` missing from `SlackClient` — and retired when the method
+landed. See the commit log for the shape of that catch.)
 
 ## Where runtime state lives (not here)
 

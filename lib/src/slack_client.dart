@@ -164,6 +164,26 @@ class SlackClient {
     });
   }
 
+  /// Adds an emoji reaction to a message. The design uses this as a one-click
+  /// consent prompt: the agent reacts, a seat adds the same emoji to agree,
+  /// no reaction means no action. See docs/externally-anchored-lines.md §3
+  /// (consent is an instance of appending a reaction-shaped node) and §4.1,
+  /// §4.2 for the edit-replay and proactive-remember uses.
+  ///
+  /// [name] is the Slack emoji name without surrounding colons
+  /// (e.g. `arrows_counterclockwise`, `floppy_disk`).
+  Future<void> reactionsAdd({
+    required String channel,
+    required String ts,
+    required String name,
+  }) async {
+    await _post('reactions.add', {
+      'channel': channel,
+      'timestamp': ts,
+      'name': name,
+    });
+  }
+
   Future<Map<String, dynamic>> _get(Uri url) async {
     final res = await _send(SlackHttpRequest(
       method: 'GET',

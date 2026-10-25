@@ -44,10 +44,7 @@
   "restricted_kit": {
     "message": "SlackClient.chatPostMessage",
     "edit": "SlackClient.chatUpdate",
-    "reaction": null,
+    "reaction": "SlackClient.reactionsAdd",
     "tombstone": "SlackClient.chatDelete"
-  },
-  "gaps": {
-    "reaction": "SlackClient has no chatReact / reactionsAdd method yet. docs/externally-anchored-lines.md §3's design implication requires one; adding it is a precondition for the consent-shaped turns in §4.1 (edit-replay) and §4.2 (proactive-remember). The manifest declares the shape honestly rather than listing a method that does not exist."
   }
 }
