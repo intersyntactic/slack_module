@@ -2,12 +2,11 @@
 
 A Slack adapter for intersyntactic. An @-mention in Slack becomes a turn of a
 run on an intersyntactic agent, with any model the sender has credentials for.
-Threads are the conversation; the restricted Slack kit decides what the agent
-can touch when answering.
+Threads are the conversation; the airlock, given this line's rules, decides
+each effect the agent asks for, and a driver operates Slack.
 
-A plugin, by intersyntactic's own shape: *everything is a plugin, and plugins
-live in their own repos.* This package depends on `enspyrco/intersyntactic`,
-not the other way around.
+A module, by intersyntactic's own shape: modules live in their own repos.
+This package depends on `enspyrco/intersyntactic`, not the other way around.
 
 ## Shape
 
@@ -32,8 +31,9 @@ one-way.
 ## Status
 
 Draft. The signing/parsing gate is here (`lib/src/slack_gate.dart`) with tests;
-the HTTP handler, the Slack Web API client, the credential store, the
-restricted kit and the local turn-store are not written yet.
+the HTTP handler, the Slack Web API client, the local turn-store and the
+receiver side are not written yet. Credentials live at the airlock under the
+drivers ruling, not in this module.
 
 ## Running the tests
 
@@ -44,10 +44,17 @@ dart test
 
 ## Design anchors
 
-- `enspyrco/intersyntactic/docs/design/distributed.md` — the always-on target.
-  A run is a tree of turns (grow-only), a head (one writer, epoch-fenced), and
-  a working tree (pins the writer to a machine). Slack threads map to the tree
-  cleanly; this package writes its turns in that shape from day one.
-- `enspyrco/intersyntactic/docs/design-cross-machine-sessions.md` §4.8 — the
-  machine-peer model. The Slack bot will eventually be one more roster entry
-  alongside `claudius`, `lyra-avatar` and the rest.
+- [`composition.md`](https://github.com/enspyrco/intersyntactic/blob/main/docs/design/composition.md)
+  — the state of truth for how modules compose. Acceptors are places a module
+  opens; offerings are what a module brings; the core binds each offering at
+  the acceptors it names. Our manifest at [`.intersyntactic/manifest.json`](./.intersyntactic/manifest.json)
+  declares one acceptor (`slack_mirror`) and nine offerings (five node shapes
+  + four tool effects).
+- `docs/externally-anchored-lines.md` — the Slack-specific design. A
+  Slack-anchored line has no git worktree; its writable state lives at
+  `~/.intersyntactic/lines/<line_id>/`. The orchestrator (composition.md §7)
+  resolves a webhook delivery to its line before anything becomes a node.
+- `enspyrco/intersyntactic/docs/design/distributed.md` — the always-on target:
+  a run is a tree of turns (grow-only), a head (one writer, epoch-fenced), and
+  a working tree. For Slack lines, "working tree" is the home-pinned data
+  directory above, not a git checkout.

@@ -1,13 +1,17 @@
 # Externally-anchored lines
 
-**Status:** draft, 2026-10-23. For a PR against `enspyrco/intersyntactic/docs/design/`
-after review and `/design-temper`. Written from a design conversation with Nick on
-2026-10-23. **Draft lives in `enspyrco/intersyntactic-slack` while it stabilises;
-promote once settled.**
-**Builds on:** [`distributed.md`](../../intersyntactic/docs/design/distributed.md) §1
+**Status:** draft, 2026-10-23, aligned 2026-11-05 to [`composition.md`](https://github.com/enspyrco/intersyntactic/blob/main/docs/design/composition.md)
+(PROPOSED 2026-11-04, ratified by Nick as the state of truth 2026-11-05). For a PR
+against `enspyrco/intersyntactic/docs/design/` after review and `/design-temper`.
+Written from a design conversation with Nick on 2026-10-23, extended by the
+2026-11-03/04 cross-session conversations that produced composition.md.
+**Draft lives in `enspyrco/intersyntactic-slack` while it stabilises; promote
+once settled.**
+**Builds on:** [`composition.md`](https://github.com/enspyrco/intersyntactic/blob/main/docs/design/composition.md)
+(acceptors, offerings, bindings, deliveries), [`distributed.md`](../../intersyntactic/docs/design/distributed.md) §1
 (a run is a tree of turns, a head, a working tree) and
 [`authority.md`](../../intersyntactic/docs/design/authority.md) §3 (invariants N, H,
-L, T, E). This note names a third line type beyond "worktree-pinned" and the
+L, T, E). This note names a kind of line beyond "worktree-pinned" and the
 service-local case `authority.md` already allows.
 **Forcing function:** `enspyrco/intersyntactic-slack`, the first inbound-event
 adapter. The Slack case is the concrete instance below; the type generalises.
@@ -23,9 +27,10 @@ adapter. The Slack case is the concrete instance below; the type generalises.
 3. **All contributions to a line are node appends.** Edits, deletions, and
    reactions are not special signals; they are instances of this primitive,
    with particular node-shapes. The state model has no mutation; the head
-   serialises append-order. §1 states this; §3 names the plugin-level
-   consequence (a plugin's manifest declares which node-shapes the agent and
-   the seats may each append).
+   serialises append-order. §1 states this; §3 names the module-level
+   consequence (a module's manifest declares its acceptors and the shapes
+   that bind at each, with `from: [agent | seats | modules]` on each acceptor
+   taking the place of the old "which party may append which shape" framing).
 4. **Shared knowledge-base lives in a `#kb` channel**, one message per entry.
    Universal across Slack plans; permissioned by Slack's own channel membership.
 5. **Any user may call `remember`.** The channel is the ACL. Slack's edit history
@@ -62,9 +67,9 @@ mutated. "Edit," "delete," and "reaction" are not special events in the state
 model — they are node-shapes whose semantics are supplied by downstream readers
 (edit chains collapse to latest text; tombstones hide a branch; reactions
 annotate their target). The §2 table catalogues the Slack-specific shape
-vocabulary; other sources substitute their own. The human-side API of a plugin
-is the subset of node-shapes humans can append; the agent-side API is the
-subset the agent can append. §3 names this as the plugin manifest.
+vocabulary; other sources substitute their own. What can append which shape,
+and where it lands, is declared in the module's manifest per composition.md:
+§3 walks this through for the Slack case.
 
 ## 2. The pattern, in three pieces
 
@@ -111,44 +116,59 @@ chains to the latest text, skip tombstoned branches, surface reactions as
 annotations on their targets. Same shape as git's working-copy view derived from
 the object store, same shape as `authority.md` §5's first-parent walk.
 
-## 3. The plugin manifest: node-shape sets
+## 3. The module manifest: acceptors and offerings
 
-Per §1, a line's state is a tree of appended nodes. A plugin defines the typed
-**node-shape vocabulary** of its lines, and declares in its manifest which
-subsets of that vocabulary are appendable by which party:
+Per §1, a line's state is a tree of appended nodes. A module that binds to a
+line declares, in its manifest (composition.md §6), two things:
 
-- The **agent-facing set** — node-shapes the agent can append from this
-  plugin's restricted kit. For Slack: `message`, `edit`, `reaction`,
-  `tombstone`. These are what `slack.chat_post`, `slack.chat_update`,
-  `slack.react`, `slack.delete` write.
-- The **seat-facing set** — node-shapes humans can append, surfaced by the
-  plugin's UI. For Slack, the UI is Slack itself: the seat-facing set is
-  `{message, edit, reaction, tombstone}` by Slack's own affordances.
-- The **ambient set** — node-shapes written by the external source without
-  either party's action (e.g. a presence change). Often empty.
+- **Acceptors**: places the module opens for others. An acceptor has a
+  *shape* (what can bind here), a *use* (what the module does with
+  whatever binds — composition.md §6: "the use belongs to the acceptor,
+  never to the offering"), a *version*, and a *from* (`agent`, `seats`
+  or `modules`: who may offer to it).
+- **Offerings**: what the module brings to other modules' acceptors. An
+  offering has a shape (a node shape, or a tool, or data), a `binds`
+  list naming the acceptors it goes to, and optional `needs` (what else
+  must be bound for it to work).
 
-Making these sets first-class in the manifest is what makes a plugin's surface
-*audit-able* rather than ad-hoc: "what can the agent do in this plugin" and
-"what can seats do in this plugin" become formal, declared questions over the
-same node vocabulary. A plugin that produces content on behalf of humans (an
-analytics plugin whose seats only approve or correct) has a near-empty
-seat-facing set; a plugin where humans ARE the content producers (Slack) has
-seat-facing cardinality equal to the UI's native affordances.
+For the Slack module:
 
-**Design implication:** the Slack plugin's manifest must list `reaction` in the
-agent-facing set so the restricted kit includes `slack.react(message_ts,
-emoji)` as a first-class tool, not an advanced feature. The whole class of
-agent-initiated consent prompts — the agent appends a question-shaped node and
-a seat appends a `reaction`-shaped node under it, with "refusal is the
-default" following from "no append = no node"; §4.1 and §4.2 are instances —
-depends on it being in both sets.
+- **One acceptor**, `slack_mirror`. Shape: a Slack-anchored node
+  (`message`, `edit`, `reaction`, `tombstone`, or `slack_event_raw`).
+  Use: keep the mirror of a Slack-anchored line in sync with Slack.
+  From: `modules` (the orchestrator per composition.md §7 delivers
+  nodes here after resolving a webhook to its line).
+- **Five node-shape offerings** at `slack_mirror`: the four typed shapes
+  plus the catch-all `slack_event_raw`. The catch-all carries a
+  `slack_event_type` discriminator so composition.md §2's rule — *a node
+  of a shape nothing bound is refused* — holds even for Slack event
+  subtypes we haven't typed explicitly. "Loosely typed with a known
+  discriminator" is what lets "every shape bound at composition" hold
+  for mirror-style lines without losing events Slack adds later.
+- **Four tool offerings** at a `tools` acceptor: `chat_post`,
+  `chat_update`, `chat_delete`, `reactions_add`. These describe HTTP
+  effects only; a web driver operates the Slack API and the airlock
+  adds the bot token (the drivers ruling), so the module never holds
+  a secret.
 
-**Where this meets `authority.md`:** N's "any process writes a node, union
-merges" is unchanged; the manifest doesn't gate writes, it describes the
-expected vocabulary. A node whose shape isn't in any declared set is still
-written; it just has no reader that knows what to do with it. This matters for
-forward-compat: a plugin that learns to emit a new shape adds it to its
-manifest; older readers see the node as opaque, newer readers interpret it.
+**Design implication:** `reactions_add` must be offered at `tools`, not
+left out as nice-to-have. Agent-initiated consent prompts — the agent
+appends a question-shaped node and a seat appends a `reaction`-shaped
+node under it, with "refusal is the default" following from "no append
+= no node"; §4.1 and §4.2 are instances — depend on it.
+
+**Where this meets `authority.md`:** N's "any process writes a node,
+union merges" is unchanged; the manifest doesn't gate writes beyond
+the composition-time check. A composition that includes the Slack
+module must include an acceptor that binds its shapes (the module's
+own `slack_mirror` normally does), or composition fails with the
+reason, per composition.md §2.
+
+**What retired from the v0.1 draft:** the `agent_facing` / `seat_facing`
+/ `ambient` sets, and the `restricted_kit` field. The three sets become
+`from: [agent | seats | modules]` on individual acceptors; the kit
+dissolves into tool offerings whose effects are HTTP, operated by a
+driver not owned by this module.
 
 ## 4. Three concrete instances
 
@@ -224,7 +244,7 @@ the broker becomes a trust surface for provider budgets. The strong hint from
 this adapter: whatever the first spike settles for §2, it should carry a
 streaming test with cross-machine auth from day one.
 
-## 6. The roster, as a first-class plugin-system concern
+## 6. The roster, as a first-class module-system concern
 
 `cross-machine-sessions.md` §4.5 names "roster" as "explicit, opt-in per
 machine, maintained by the relay." The externally-anchored line pattern makes
@@ -281,8 +301,8 @@ need no equivalent roster. §7.1 generalises this as a design axis.
 - **Related open questions already in other docs:**
     - `plugins-as-services.md §7` — which option for each slot in §2. The
       shim-receiver call is this pattern's first serious cross-machine use.
-    - `open-core.md §6` — trust for strangers' plugins beyond UI. The shim
-      is a stranger's-plugin-in-the-small for whoever runs it.
+    - `open-core.md §6` — trust for strangers' modules beyond UI. The shim
+      is a stranger's-module-in-the-small for whoever runs it.
 
 ## 8. Done when
 
