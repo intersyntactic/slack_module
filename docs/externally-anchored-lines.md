@@ -295,17 +295,35 @@ need no equivalent roster. §7.1 generalises this as a design axis.
        persistent. Receivers that dial out (via `intersyntactic_relay`) need
        no equivalent. The axis — *bootstrapped-from-inside pipelines vs
        sender-can't-dial-out systems* — determines whether an adapter needs
-       an orchestrator at all. Open sub-questions: where does the map live —
-       the shim (as §6); a meta-line (recursive, since its routing has to
-       live somewhere); Slack itself as a profile field (Slack as config
-       store the user edits with their mouse); a well-known per-workspace
-       endpoint (which IS the routing table, just hosted elsewhere)? And
-       given the shim holds signing secrets plus the routing table, what's
-       the minimum audit a user should do before pointing their receiver at
-       a stranger's shim?
-    2. **Reaction consent window.** How long is a reaction prompt live? A
-       reaction added days later shouldn't trigger a stale turn. Default
-       proposal: 10 minutes, surfaced in the ephemeral message's text.
+       an orchestrator at all. **The routing-location question
+       (`/design-temper` 2026-11-06, RECAST → fold):** the four candidates
+       split into two groups.
+       - *Self-anchored routing* — Slack profile field (Slack as config store
+         the user edits with their mouse); DNS TXT/SRV record on a user-owned
+         domain. The identified entity has native edit access to its own
+         routing, so the recursion terminates: no stranger's-shim-audit
+         question arises because no stranger is in the path. Default for
+         users who have either affordance.
+       - *Third-party-anchored routing* — a shim (as §6); a meta-line
+         (recursive, since its routing has to live somewhere); a well-known
+         per-workspace endpoint (which IS the routing table, just hosted
+         elsewhere). These all push the routing-of-routing problem one level
+         back. Fallback for populations without a domain or whose workspace
+         admins disable profile fields. The audit question — given the shim
+         holds signing secrets plus the routing table, what's the minimum
+         audit a user should do before pointing their receiver at a
+         stranger's shim? — re-enters here, not in the self-anchored case.
+    2. **Reaction consent window** (`/design-temper` 2026-11-06, RECAST →
+       fold). A reaction prompt is live **until the next event changes the
+       state it proposes to modify, OR 10 minutes elapse, whichever comes
+       first**. State-change is the natural ceiling (the context has moved
+       on); 10 minutes is the floor for the user-walked-away case. **On an
+       expired 💾, the agent posts a reply naming the expiry and offering to
+       re-run** — silent drop is a trust break on a consent gesture. The
+       prompt mechanism needs an ephemeral that persists across view
+       refreshes; `chat.postEphemeral` doesn't, so the implementation
+       probably uses a short-lived non-ephemeral message in a dedicated
+       thread rather than a true ephemeral.
     3. ~~**KB entry structure.** One Slack message per entry gives a flat list.
        Does the agent chunk long memories across multiple messages (threaded
        under a header), or is each entry capped to one message's text limit?
@@ -315,9 +333,16 @@ need no equivalent roster. §7.1 generalises this as a design axis.
        references. The `MEMORY.md` pattern actually supports this (index +
        separate content files), not threaded chunks — the earlier framing
        misread its own cited precedent. Rationale and new text in §4.2.
-    4. **The receiver's identity to the shim.** Tailscale whois when both are
-       on the tailnet; a bearer when not. For users off-tailnet, how is the
-       registration bearer rotated?
+    4. **The receiver's identity to the shim** (`/design-temper` 2026-11-06,
+       RECAST → fold). On-tailnet: Tailscale whois, unchanged. **Off-tailnet:
+       Slack OAuth, not a static bearer.** The receiver holds a short-lived
+       Slack-issued OAuth token for its app, refreshed via Slack's
+       refresh-token flow. Rotation is built into the OAuth flow; revocation
+       is one-click via Slack's app management UI; the trust anchor is Slack
+       itself, which the user already trusts to carry the consent signal.
+       Bearers as a primitive are declined — a leaked static bearer would
+       give receive-access until manual re-registration, whereas a leaked
+       OAuth token has a bounded lifetime and a visible revocation path.
 - **Related open questions already in other docs:**
     - `plugins-as-services.md §7` — which option for each slot in §2. The
       shim-receiver call is this pattern's first serious cross-machine use.
