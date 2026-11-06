@@ -191,25 +191,40 @@ walk if the user wants it.
 ### 4.2 Slack KB as a line
 
 A `#kb` channel per workspace (or per team's choice); each top-level message is
-one KB entry. The line's id is `(workspace, #kb-channel-id)`. The agent exposes:
+one KB entry, **capped at Slack's single-message text limit**. The line's id is
+`(workspace, #kb-channel-id)`. The agent exposes:
 
-- `remember(fact, scope?)` — posts a new message to the `#kb` channel. Returns
-  the Slack `ts` as the entry's id. Writes write-ahead to the mirror before the
-  Slack call.
+- `remember(title, body?, reference?, scope?)` — posts a new message to the
+  `#kb` channel. The message is **one Slack message**: title + a short body
+  that fits the message cap. Returns the Slack `ts` as the entry's id. Writes
+  write-ahead to the mirror before the Slack call.
 - `recall(query, scope?)` — reads the local mirror, which is kept in sync by the
   channel's event stream.
+
+**Long content lives elsewhere.** The KB is a *facts database*, not a document
+store. When a memory wouldn't fit one Slack message, the entry becomes a
+*reference*: title + summary + a link to a document in whatever document store
+the team uses (Google Docs, a wiki, a canvas, an uploaded file). The KB holds
+the summary and the pointer; the document store holds the content. This mirrors
+intersyntactic's own `MEMORY.md` + content-file pattern — `MEMORY.md` is the
+index with one-line-per-entry, and bodies live in separate files. Splitting
+index from content is the pattern, not threading content under a header.
 
 **Proactive promotion:** when the agent spots something worth keeping (a stated
 preference, a correction, a decision), it does *not* call `remember` directly.
 Instead it posts the candidate as an ephemeral message in the originating
 thread with a 💾 reaction, framed as "worth saving to the channel KB?" User-
 click-💾 fires `reaction_added`; receiver treats as consent; agent runs
-`remember` with the agreed text.
+`remember` with the agreed text. Because entries fit one message, the whole
+candidate shows in the ephemeral — consent is informed by what the user sees.
 
 **Who may edit a KB entry:** anyone in the channel, through Slack's own UI. An
-edit emits `message_changed`; the receiver's mirror updates. The KB tracks what
-the channel believes right now, with Slack's edit history as the authoritative
-log of who-changed-what-and-when.
+edit emits `message_changed`; the receiver's mirror updates. One-message
+entries use Slack's native edit-visibility affordances (the `(edited)` suffix,
+hover-to-see-history). The KB tracks what the channel believes right now, with
+Slack's edit history as the authoritative log of who-changed-what-and-when. A
+reference-style entry edits by updating the summary or the pointer; the
+referenced document edits through its own system's history.
 
 ### 4.3 Future (not scoped here, named so the pattern can carry them)
 
@@ -291,10 +306,15 @@ need no equivalent roster. §7.1 generalises this as a design axis.
     2. **Reaction consent window.** How long is a reaction prompt live? A
        reaction added days later shouldn't trigger a stale turn. Default
        proposal: 10 minutes, surfaced in the ephemeral message's text.
-    3. **KB entry structure.** One Slack message per entry gives a flat list.
+    3. ~~**KB entry structure.** One Slack message per entry gives a flat list.
        Does the agent chunk long memories across multiple messages (threaded
        under a header), or is each entry capped to one message's text limit?
-       The `MEMORY.md` + hunks pattern suggests threaded.
+       The `MEMORY.md` + hunks pattern suggests threaded.~~ **Resolved via
+       `/design-temper` 2026-11-06 (RECAST → fold).** Entries are capped at
+       one Slack message; long content lives in a document store the entry
+       references. The `MEMORY.md` pattern actually supports this (index +
+       separate content files), not threaded chunks — the earlier framing
+       misread its own cited precedent. Rationale and new text in §4.2.
     4. **The receiver's identity to the shim.** Tailscale whois when both are
        on the tailnet; a bearer when not. For users off-tailnet, how is the
        registration bearer rotated?
