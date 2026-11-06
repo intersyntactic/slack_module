@@ -11,23 +11,28 @@
   },
   "offerings": {
     "message": {
-      "shape": "message",
+      "shape": "SlackMessage",
+      "shape_file": "lib/src/shapes.dart",
       "binds": ["slack_mirror"]
     },
     "edit": {
-      "shape": "edit",
+      "shape": "SlackEdit",
+      "shape_file": "lib/src/shapes.dart",
       "binds": ["slack_mirror"]
     },
     "reaction": {
-      "shape": "reaction",
+      "shape": "SlackReaction",
+      "shape_file": "lib/src/shapes.dart",
       "binds": ["slack_mirror"]
     },
     "tombstone": {
-      "shape": "tombstone",
+      "shape": "SlackTombstone",
+      "shape_file": "lib/src/shapes.dart",
       "binds": ["slack_mirror"]
     },
     "slack_event_raw": {
-      "shape": "slack_event_raw",
+      "shape": "SlackEventRaw",
+      "shape_file": "lib/src/shapes.dart",
       "binds": ["slack_mirror"]
     },
     "chat_post": {

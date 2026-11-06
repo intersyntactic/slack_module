@@ -13,6 +13,10 @@ environment:
 
 dependencies:
   crypto: ^3.0.3
+  is_shapes:
+    git:
+      url: git@github.com:intersyntactic/shapes.git
+      ref: 76d5c7c76a0d87f16ac31c320ba7e4e8c71f678a
 
 dev_dependencies:
   lints: ^6.1.0
