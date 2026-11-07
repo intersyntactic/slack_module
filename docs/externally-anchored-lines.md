@@ -343,6 +343,37 @@ need no equivalent roster. §7.1 generalises this as a design axis.
        Bearers as a primitive are declined — a leaked static bearer would
        give receive-access until manual re-registration, whereas a leaked
        OAuth token has a bounded lifetime and a visible revocation path.
+    5. **When does a turn run?** Surfaced 2026-11-06, unresolved. The mirror
+       updates on every event the owner is subscribed to — that's the
+       "never drifts from Slack" guarantee of §1. A turn (a model call)
+       is a different layer, and must not fire on every mirror write;
+       otherwise a stray 👍 in the channel burns provider budget. The
+       invariant the receiver must hold: **mirror updates on every event;
+       turns run on named triggers.** §8.1 names one trigger (`@-mention`
+       in the thread); §4.1/§4.2 name two more (user clicks the specific
+       consent emoji the agent is waiting on). The following cases are
+       unspecified and need a ruling before task 5 is built:
+       - **In-thread reply after an `@-mention`.** Does every subsequent
+         user message in that thread trigger a turn, or must the user
+         re-@-mention? Natural reading: while the thread is active, yes;
+         the conversation would break otherwise. But "active" is
+         unbounded — how long after the last turn is the thread still
+         treated as live?
+       - **DMs with the bot.** Natural reading: every user message in
+         a DM triggers a turn (the DM itself is the invitation). State
+         this explicitly rather than inherit from the thread case.
+       - **Reactions outside a live prompt.** If a user puts the
+         consent emoji on an agent message that wasn't a live prompt,
+         the consent-window ruling (§7.2) implies it's ignored — but
+         by implication, not by statement. Say it.
+       - **Edits to messages the agent already replied to.** §4.1 is
+         explicit: a `message_changed` writes an edit node and the
+         agent 🔄-reacts as a re-prompt. The re-turn fires only on
+         user confirmation. This one is actually resolved; it's listed
+         so the full enumeration is visible in one place.
+
+       The resolution should land in this section once ruled, and in
+       task 5's acceptance criteria (which already names the invariant).
 - **Related open questions already in other docs:**
     - `plugins-as-services.md §7` — which option for each slot in §2. The
       shim-receiver call is this pattern's first serious cross-machine use.
