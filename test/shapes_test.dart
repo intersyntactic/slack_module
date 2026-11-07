@@ -5,7 +5,9 @@
 /// The analyzer-level tests (that `Withdraw<SlackReaction>` can't be assigned
 /// to `Withdraw<Approve>`, that `Correction<SlackVerdict>` can't bind where
 /// `Correction<OtherVerdict>` is expected) are already verified in
-/// is_review_shapes' own spike and PR #3 using `TypeSystem.isAssignableTo`.
+/// is_annotation_shapes' own spike using `TypeSystem.isAssignableTo` (repo
+/// renamed from `is_review_shapes` on 2026-11-06:
+/// https://github.com/intersyntactic/annotation_shapes).
 /// Nothing here would add signal to that.
 library;
 
@@ -16,7 +18,7 @@ import 'package:test/test.dart';
 void main() {
   group('SlackMessage', () {
     test('constructs with required fields', () {
-      final by = PartyId.parse('U01ABC234XY')!;
+      final by = SlackActorId.forWorkspace(workspaceId: 'T01ABC', userId: 'U01ABC234XY');
       final m = SlackMessage(
         channel: 'C01GENERAL',
         ts: '1730000000.000100',
@@ -29,7 +31,7 @@ void main() {
     });
 
     test('threadTs distinguishes thread replies', () {
-      final by = PartyId.parse('U01ABC234XY')!;
+      final by = SlackActorId.forWorkspace(workspaceId: 'T01ABC', userId: 'U01ABC234XY');
       final m = SlackMessage(
         channel: 'C01GENERAL',
         ts: '1730000100.000200',
@@ -43,7 +45,7 @@ void main() {
 
   group('SlackEdit', () {
     test('replaces holds the TurnId of the edited message', () {
-      final by = PartyId.parse('U01ABC234XY')!;
+      final by = SlackActorId.forWorkspace(workspaceId: 'T01ABC', userId: 'U01ABC234XY');
       final targetId = TurnId.parse(
         '0' * 64,
       )!;
@@ -67,7 +69,7 @@ void main() {
     });
 
     test('fields mint a reaction', () {
-      final by = PartyId.parse('U01ABC234XY')!;
+      final by = SlackActorId.forWorkspace(workspaceId: 'T01ABC', userId: 'U01ABC234XY');
       final targetId = TurnId.parse('1' * 64)!;
       final r = SlackReaction(
         target: targetId,
@@ -80,7 +82,7 @@ void main() {
     });
 
     test('Withdraw<SlackReaction> targets a specific reaction TurnId', () {
-      final by = PartyId.parse('U01ABC234XY')!;
+      final by = SlackActorId.forWorkspace(workspaceId: 'T01ABC', userId: 'U01ABC234XY');
       final reactionId = TurnId.parse('2' * 64)!;
       final w = Withdraw<SlackReaction>(target: reactionId, by: by);
       expect(w.target, reactionId);
@@ -92,7 +94,7 @@ void main() {
       // bounded by Withdrawable, so Withdraw<SlackReaction> only type-checks
       // because SlackReaction declares it. Other Slack shapes deliberately
       // do not — Withdraw<SlackMessage> is refused by the analyzer.
-      final by = PartyId.parse('U01ABC234XY')!;
+      final by = SlackActorId.forWorkspace(workspaceId: 'T01ABC', userId: 'U01ABC234XY');
       final r = SlackReaction(
         target: TurnId.parse('4' * 64)!,
         emoji: 'eyes',
@@ -105,7 +107,7 @@ void main() {
 
   group('SlackTombstone', () {
     test('references the deleted message', () {
-      final by = PartyId.parse('U01ABC234XY')!;
+      final by = SlackActorId.forWorkspace(workspaceId: 'T01ABC', userId: 'U01ABC234XY');
       final targetId = TurnId.parse('3' * 64)!;
       final t = SlackTombstone(
         target: targetId,

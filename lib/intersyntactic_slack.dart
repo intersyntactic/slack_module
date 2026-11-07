@@ -10,3 +10,4 @@ library;
 export 'src/shapes.dart';
 export 'src/slack_client.dart';
 export 'src/slack_gate.dart';
+export 'src/slack_actor_id.dart';

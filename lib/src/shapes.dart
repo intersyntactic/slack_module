@@ -37,7 +37,7 @@ final class SlackMessage {
   final String ts;
 
   @identity
-  final PartyId by;
+  final ActorId by;
 
   @identity
   final String? threadTs;
@@ -67,7 +67,7 @@ final class SlackEdit {
   final String editTs;
 
   @identity
-  final PartyId by;
+  final ActorId by;
 
   @identity
   final String newText;
@@ -106,7 +106,7 @@ final class SlackReaction implements Withdrawable {
   final String emoji;
 
   /// Who added the reaction.
-  final PartyId by;
+  final ActorId by;
 
   /// When the reaction was added (Slack's event_ts).
   final String ts;
@@ -127,7 +127,7 @@ final class SlackTombstone {
   final TurnId target;
 
   /// Who deleted it.
-  final PartyId by;
+  final ActorId by;
 
   /// When the deletion happened (Slack's event_ts).
   final String ts;
@@ -160,7 +160,7 @@ final class SlackEventRaw {
   final String ts;
 
   /// Who the event is from, if Slack said so; null otherwise.
-  final PartyId? by;
+  final ActorId? by;
 
   /// The whole Slack payload as JSON text, for faithful mirror.
   final String rawPayload;
