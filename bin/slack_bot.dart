@@ -23,6 +23,7 @@ import 'dart:collection';
 import 'dart:io';
 
 import 'package:intersyntactic_slack/intersyntactic_slack.dart';
+import 'package:is_shapes/is_shapes.dart';
 
 /// How long a signature digest stays in the replay cache. Slack's 5-minute
 /// signing window plus a little slack: once this expires a captured delivery
@@ -81,7 +82,18 @@ Future<void> main() async {
     signingSecret: signingSecret,
     teamIdAllowlist: allow,
   );
-  final bot = SlackBot(spec: spec);
+  // Default wiring: in-memory mirror, placeholder self-actor (no real
+  // bot-user-id yet — SLACK_BOT_TOKEN is read above but not used until the
+  // reply handler lands, so wantsTurn ends up always-true until then).
+  // onKickoff logs; task 11 replaces it with the agent-host client.
+  final bot = SlackBot(
+    spec: spec,
+    mirror: InMemorySlackMirror(),
+    onKickoff: (r) => stderr.writeln(
+      'slack bot: kickoff ${r.mirroredAs} path=${r.path.channel}/${r.path.threadTs} '
+      'epoch=${r.epoch} wantsTurn=${r.wantsTurn}',
+    ),
+  );
   final server = await HttpServer.bind(address, port);
   stdout.writeln('slack bot listening on ${address.address}:${server.port}');
   if (!address.isLoopback) {
@@ -97,21 +109,52 @@ Future<void> main() async {
 
 /// The HTTP front end. Pulled out of `main` so a test can drive it with a
 /// synthesised [HttpRequest] without opening a port.
+///
+/// On a gate `trigger` outcome whose doorbell `parseDoorbellToSlackNode` can
+/// handle (`slack_mention`, `slack_message`), the bot runs the full pipe:
+/// parse → `SlackReceiver.receive` (writes to the mirror, mints a
+/// [KickoffRecord]) → [onKickoff]. `slack_command` doorbells skip the mirror
+/// entirely — slash commands are consumed by the model-selection surface,
+/// not the thread mirror. Without a [mirror] the bot still ACKs correctly
+/// signed events but does no mirror work; useful for tests that only care
+/// about the HTTP front end.
 class SlackBot {
   SlackBot({
     required this.spec,
-    this.handleTrigger = _logTrigger,
+    this.mirror,
+    ActorId? selfActor,
+    this.onKickoff,
+    this.onCommand,
     DateTime Function()? now,
     this.bodyTimeout = const Duration(seconds: 10),
     this.log = _stderr,
-  }) : _now = now ?? DateTime.now;
+  })  : _now = now ?? DateTime.now,
+        _receiver = mirror == null
+            ? null
+            : SlackReceiver(
+                mirror: mirror,
+                selfActor: selfActor ??
+                    SlackActorId.forWorkspace(
+                      workspaceId: 'unset',
+                      userId: 'unset',
+                    ),
+              );
 
   final SlackSourceSpec spec;
 
-  /// What to do when the gate says this delivery is a wake. Defaulted to a
-  /// logger so the first drop runs end-to-end without the agent-loop glue;
-  /// the real handler is injected here as it lands.
-  final Future<void> Function(Map<String, dynamic> message) handleTrigger;
+  /// The thread mirror. If null, the bot ACKs and logs but does not parse
+  /// or record. Populated in `main` with an [InMemorySlackMirror].
+  final SlackMirror? mirror;
+
+  /// What to do with each [KickoffRecord] the receiver mints. Task 11 wires
+  /// this to the agent-host client; in tests it's a list-appender.
+  final void Function(KickoffRecord record)? onKickoff;
+
+  /// Slash-command sink. Slash commands have no mirror path — they're a
+  /// different surface. Defaulting to null drops them with a log line.
+  final void Function(Map<String, dynamic> doorbell)? onCommand;
+
+  final SlackReceiver? _receiver;
 
   final DateTime Function() _now;
   final Duration bodyTimeout;
@@ -125,11 +168,6 @@ class SlackBot {
   final LinkedHashMap<String, DateTime> _seen = LinkedHashMap();
 
   static void _stderr(String line) => stderr.writeln(line);
-
-  static Future<void> _logTrigger(Map<String, dynamic> message) async {
-    stderr.writeln('slack bot: trigger ${message['event']} '
-        '${message['channel']} ${message['thread_ts']}');
-  }
 
   Future<void> handle(HttpRequest req) async {
     try {
@@ -212,9 +250,31 @@ class SlackBot {
     }
   }
 
-  Future<void> _dispatch(Map<String, dynamic> message) async {
+  Future<void> _dispatch(Map<String, dynamic> doorbell) async {
     try {
-      await handleTrigger(message);
+      final event = doorbell['event'];
+      if (event == 'slack_command') {
+        final sink = onCommand;
+        if (sink == null) {
+          log('slack bot: slash command dropped (no onCommand): '
+              '${doorbell['command']} by ${doorbell['user']}');
+        } else {
+          sink(doorbell);
+        }
+        return;
+      }
+      final receiver = _receiver;
+      if (receiver == null) {
+        // No mirror wired — ACK path still works; the parse+write pipeline
+        // just isn't engaged. Tests that skip the mirror land here.
+        return;
+      }
+      final (path, node) = parseDoorbellToSlackNode(
+        doorbell,
+        lookup: mirror!.find,
+      );
+      final record = receiver.receive(path, node);
+      onKickoff?.call(record);
     } catch (e, s) {
       log('slack bot: handler error: $e\n$s');
     }

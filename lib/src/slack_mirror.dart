@@ -39,6 +39,20 @@ abstract interface class SlackMirror {
   /// The current head of [path], or null if nothing has been written there.
   TurnId? headFor(JourneyPathId path);
 
+  /// The [TurnId] on [path] whose node's Slack `ts` equals [ts], or null if
+  /// no such node is in the chain. Used by `gate_parser.dart`'s
+  /// [SlackMessageLookup] to anchor edits and tombstones to the message they
+  /// replace or remove. Walks the chain from the head; O(chain-length). For
+  /// threads of normal length that is a handful of nodes.
+  ///
+  /// The walk visits every shape (`SlackMessage`, `SlackEdit`,
+  /// `SlackReaction`, `SlackTombstone`, `SlackEventRaw`) and matches the
+  /// first `ts` collision — in practice Slack's message `ts` is thread-unique
+  /// so the result is always the original message, but a caller that needs
+  /// to distinguish "find a message" from "find any node at this ts" should
+  /// filter the returned node via `nodeAt`.
+  TurnId? find(JourneyPathId path, String ts);
+
   /// The current epoch of [path]. Starts at 1 on first write; stays at 1
   /// until an `adopt`-like op bumps it. See §8.6.
   int epochFor(JourneyPathId path);
@@ -89,7 +103,27 @@ final class InMemorySlackMirror implements SlackMirror {
 
   @override
   SlackNode? nodeAt(TurnId id) => _nodes[id]?.node;
+
+  @override
+  TurnId? find(JourneyPathId path, String ts) {
+    var cursor = _heads[path];
+    while (cursor != null) {
+      final entry = _nodes[cursor];
+      if (entry == null) return null;
+      if (_tsOf(entry.node) == ts) return cursor;
+      cursor = entry.parent;
+    }
+    return null;
+  }
 }
+
+String? _tsOf(SlackNode node) => switch (node) {
+      SlackMessage(:final ts) => ts,
+      SlackEdit(:final editTs) => editTs,
+      SlackReaction(:final ts) => ts,
+      SlackTombstone(:final ts) => ts,
+      SlackEventRaw(:final ts) => ts,
+    };
 
 class _Entry {
   const _Entry({required this.parent, required this.node, required this.path});

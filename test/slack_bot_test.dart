@@ -75,9 +75,11 @@ void main() {
       expect(await res.transform(utf8.decoder).join(), 'xyz');
     });
 
-    test('a correctly signed app_mention is 200 and dispatches', () async {
+    test('a correctly signed app_mention is 200 and mirrors + kicks off',
+        () async {
       final at = DateTime.utc(2026, 10, 23, 12, 0, 0);
-      final seen = <Map<String, dynamic>>[];
+      final mirror = InMemorySlackMirror();
+      final kickoffs = <KickoffRecord>[];
       final dispatched = Completer<void>();
       final bot = SlackBot(
         spec: SlackSourceSpec(
@@ -85,9 +87,10 @@ void main() {
           teamIdAllowlist: const {team},
         ),
         now: () => at,
-        handleTrigger: (m) async {
-          seen.add(m);
-          dispatched.complete();
+        mirror: mirror,
+        onKickoff: (r) {
+          kickoffs.add(r);
+          if (!dispatched.isCompleted) dispatched.complete();
         },
       );
       final base = await _serve(bot);
@@ -98,6 +101,7 @@ void main() {
           'type': 'app_mention',
           'channel': 'C1',
           'user': 'U1',
+          'text': 'hi bot',
           'ts': '1700000000.000100',
         },
       }));
@@ -114,20 +118,29 @@ void main() {
       );
       expect(res.statusCode, 200);
       await dispatched.future.timeout(const Duration(seconds: 2));
-      expect(seen, hasLength(1));
-      expect(seen.single['event'], 'slack_mention');
-      expect(seen.single['channel'], 'C1');
+      expect(kickoffs, hasLength(1));
+      final record = kickoffs.single;
+      expect(record.path.workspace, team);
+      expect(record.path.channel, 'C1');
+      expect(record.path.threadTs, '1700000000.000100');
+      expect(record.epoch, 1);
+      // Placeholder selfActor, so a real U1 is "someone else" → turn-worthy.
+      expect(record.wantsTurn, isTrue);
+      final head = mirror.headFor(record.path);
+      expect(head, record.mirroredAs);
+      final node = mirror.nodeAt(head!);
+      expect(node, isA<SlackMessage>());
+      expect((node! as SlackMessage).text, 'hi bot');
     });
 
     test('a wrong signature answers 401 and does not dispatch', () async {
       final at = DateTime.utc(2026, 10, 23, 12, 0, 0);
-      var dispatched = false;
+      final kickoffs = <KickoffRecord>[];
       final bot = SlackBot(
         spec: const SlackSourceSpec(signingSecret: secret),
         now: () => at,
-        handleTrigger: (_) async {
-          dispatched = true;
-        },
+        mirror: InMemorySlackMirror(),
+        onKickoff: kickoffs.add,
       );
       final base = await _serve(bot);
       final body = utf8.encode(jsonEncode({'type': 'event_callback'}));
@@ -145,20 +158,21 @@ void main() {
       // Give the (should-not-fire) handler a tick to run if the ACK path is
       // broken; if it hasn't fired by now, the gate held.
       await Future<void>.delayed(const Duration(milliseconds: 50));
-      expect(dispatched, isFalse);
+      expect(kickoffs, isEmpty);
     });
 
     test('a replay of a correctly signed event is accepted but not re-dispatched',
         () async {
       final at = DateTime.utc(2026, 10, 23, 12, 0, 0);
-      final dispatches = <Map<String, dynamic>>[];
+      final kickoffs = <KickoffRecord>[];
       final bot = SlackBot(
         spec: SlackSourceSpec(
           signingSecret: secret,
           teamIdAllowlist: const {team},
         ),
         now: () => at,
-        handleTrigger: (m) async => dispatches.add(m),
+        mirror: InMemorySlackMirror(),
+        onKickoff: kickoffs.add,
       );
       final base = await _serve(bot);
       final body = utf8.encode(jsonEncode({
@@ -185,8 +199,88 @@ void main() {
           contentType: 'application/json', body: body, headers: headers);
       expect(second.statusCode, 200);
       await Future<void>.delayed(const Duration(milliseconds: 50));
-      expect(dispatches, hasLength(1),
-          reason: 'replay should ACK 200 but not re-run the handler');
+      expect(kickoffs, hasLength(1),
+          reason: 'replay should ACK 200 but not re-run the pipeline');
+    });
+
+    test('an edit resolves its prior turn via the mirror and mints SlackEdit',
+        () async {
+      final at = DateTime.utc(2026, 10, 23, 12, 0, 0);
+      final mirror = InMemorySlackMirror();
+      final kickoffs = <KickoffRecord>[];
+      final bot = SlackBot(
+        spec: SlackSourceSpec(
+          signingSecret: secret,
+          teamIdAllowlist: const {team},
+        ),
+        now: () => at,
+        mirror: mirror,
+        onKickoff: kickoffs.add,
+      );
+      final base = await _serve(bot);
+      final ts = _ts(at);
+
+      // First: a plain message that seeds the thread.
+      final firstBody = utf8.encode(jsonEncode({
+        'type': 'event_callback',
+        'team_id': team,
+        'event': {
+          'type': 'message',
+          'channel': 'C1',
+          'user': 'U1',
+          'text': 'original',
+          'ts': '1700000000.000100',
+        },
+      }));
+      final r1 = await _post(base, '/webhook/slack',
+          contentType: 'application/json',
+          body: firstBody,
+          headers: {
+            'X-Slack-Request-Timestamp': ts,
+            'X-Slack-Signature': _sig(ts, firstBody),
+          });
+      expect(r1.statusCode, 200);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      // Then: an edit of that message. Slack wraps the new state in
+      // event.message and the prior state in event.previous_message.
+      final editBody = utf8.encode(jsonEncode({
+        'type': 'event_callback',
+        'team_id': team,
+        'event': {
+          'type': 'message',
+          'subtype': 'message_changed',
+          'channel': 'C1',
+          'ts': '1700000005.000200',
+          'thread_ts': '1700000000.000100',
+          'message': {
+            'user': 'U1',
+            'text': 'revised',
+            'ts': '1700000000.000100',
+          },
+          'previous_message': {
+            'user': 'U1',
+            'text': 'original',
+            'ts': '1700000000.000100',
+          },
+        },
+      }));
+      final r2 = await _post(base, '/webhook/slack',
+          contentType: 'application/json',
+          body: editBody,
+          headers: {
+            'X-Slack-Request-Timestamp': ts,
+            'X-Slack-Signature': _sig(ts, editBody),
+          });
+      expect(r2.statusCode, 200);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(kickoffs, hasLength(2));
+      final editHead = mirror.nodeAt(kickoffs.last.mirroredAs);
+      expect(editHead, isA<SlackEdit>(),
+          reason: 'mirror.find(path, previousTs) should resolve, producing '
+              'a SlackEdit rather than falling back to SlackEventRaw');
+      expect((editHead! as SlackEdit).newText, 'revised');
     });
 
     test('a path other than /webhook/slack is 404', () async {
