@@ -55,12 +55,22 @@ class SlackGateDecision {
   ///   "event": "slack_mention" | "slack_message" | "slack_command",
   ///   "team": "T...",
   ///   "channel": "C...",
-  ///   "thread_ts": "...",       // event.thread_ts || event.ts
+  ///   "thread_ts": "...",       // event.thread_ts || event.ts (the anchor)
   ///   "user": "U...",
-  ///   "command": "/model",      // slack_command only
-  ///   "text": "opus-4.7",       // slack_command only
-  ///   "trigger_id": "...",      // slack_command only
-  ///   "response_url": "...",    // slack_command only
+  ///   // slack_mention / slack_message only — the parser (gate_parser.dart)
+  ///   // consumes these to build a SlackNode without re-fetching from Slack:
+  ///   "text": "hi there",       // event.text
+  ///   "event_ts": "1700…",      // event.ts (the message's own ts; may equal
+  ///                             //           thread_ts for a top-level mention)
+  ///   "subtype": "message_changed" | "message_deleted" | null,
+  ///   "raw_thread_ts": "1700…" | null,  // event.thread_ts as-sent
+  ///   "raw_event": {...},       // the full inner event map — SlackEventRaw
+  ///                             // fallback for unrecognised subtypes
+  ///   // slack_command only:
+  ///   "command": "/model",
+  ///   "text": "opus-4.7",
+  ///   "trigger_id": "...",
+  ///   "response_url": "...",
   /// }
   /// ```
   final Map<String, dynamic>? message;
@@ -373,6 +383,12 @@ SlackGateDecision _event(
       digest: digest,
     );
   }
+  // A message_changed / message_deleted subtype moves fields inside the
+  // event: the "current" user, ts and text live under `event.message` (and
+  // `event.previous_message` for edits). The parser consumes `raw_event`
+  // directly for those, so we carry it through without re-shaping here.
+  final subtype = event['subtype'];
+  final text = event['text'];
   return SlackGateDecision(
     SlackGateOutcome.trigger,
     'event "$type"',
@@ -382,6 +398,11 @@ SlackGateDecision _event(
       'channel': channel,
       'thread_ts': anchor,
       'user': user is String ? user : null,
+      'text': text is String ? text : null,
+      'event_ts': ts is String ? ts : null,
+      'subtype': subtype is String ? subtype : null,
+      'raw_thread_ts': threadTs is String && threadTs.isNotEmpty ? threadTs : null,
+      'raw_event': event.cast<String, dynamic>(),
     },
     digest: digest,
   );

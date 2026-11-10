@@ -7,6 +7,7 @@
 /// files under `lib/src/` and re-exported here as they land.
 library;
 
+export 'src/gate_parser.dart';
 export 'src/journey_path_id.dart';
 export 'src/outbound_metadata.dart';
 export 'src/shapes.dart';

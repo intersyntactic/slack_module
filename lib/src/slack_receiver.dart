@@ -21,15 +21,16 @@
 ///
 /// What's NOT here, deliberately:
 ///
-///   - The gate-doorbell → SlackNode parser. The gate's `message` map drops
-///     the message text today; closing that gap is a separate sub-task once
-///     we decide doorbell-carries-text vs. receiver-fetches-once-via-
-///     `conversations.history`. The receiver's core is defined over a
-///     SlackNode so the mirror and kickoff logic is testable without that
-///     decision.
+///   - The gate-doorbell → SlackNode parser lives in `gate_parser.dart`; this
+///     receiver is defined over a `SlackNode` so the mirror and kickoff logic
+///     stays testable without it. The parser went the doorbell-carries-text
+///     route (§8 Done-when rule 1: no `conversations.history`).
 ///   - Edit → 🔄 → consent re-run flow (§8.2). The mirror supports it
 ///     structurally (edit nodes land as SlackEdit); the reaction-as-consent
 ///     side loops back through the turn engine and belongs with it.
+///   - Reactions. Not in the gate's wake set yet — their journey-path anchor
+///     needs a mirror lookup because reaction events don't carry thread_ts.
+///     Lands with the `Withdraw<SlackReaction>` receiver seam.
 library;
 
 import 'package:is_shapes/is_shapes.dart';
