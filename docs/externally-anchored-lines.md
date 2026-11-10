@@ -145,7 +145,7 @@ For the Slack module:
   subtypes we haven't typed explicitly. "Loosely typed with a known
   discriminator" is what lets "every shape bound at composition" hold
   for mirror-style lines without losing events Slack adds later.
-- **Four tool offerings** at a `tools` acceptor: `chat_post`,
+- **Four tool offerings** at a `tools` acceptor (opened by intersyntactic's `agent_loop` module): `chat_post`,
   `chat_update`, `chat_delete`, `reactions_add`. These describe HTTP
   effects only; a web driver operates the Slack API and the airlock
   adds the bot token (the drivers ruling), so the module never holds

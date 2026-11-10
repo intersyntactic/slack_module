@@ -16,12 +16,20 @@ library;
 
 import 'package:is_shapes/is_shapes.dart';
 
+/// The common type for every Slack-anchored node shape, so the `slack_mirror`
+/// acceptor can type-check offerings against something sharper than `Object`
+/// (per intersyntactic's module loader, slice 2).
+///
+/// `sealed` so the five shapes below are the complete set; a sixth would break
+/// the acceptor's type check loudly rather than silently widen it.
+sealed class SlackNode {}
+
 /// A message appended to a Slack channel or thread.
 ///
 /// Identity is channel + ts + by + threadTs; text is not, so the semantic
 /// anchor stays stable through [SlackEdit]s. Edits are separate nodes that
 /// reference this one, not revisions in place.
-final class SlackMessage {
+final class SlackMessage implements SlackNode {
   const SlackMessage({
     required this.channel,
     required this.ts,
@@ -51,7 +59,7 @@ final class SlackMessage {
 /// identity, per #1068 ruling 2: an edit's anchor is stable regardless of
 /// what it edits, so edits-of-already-revised content don't cascade through
 /// their anchors and the one-way edit-chain walk holds.
-final class SlackEdit {
+final class SlackEdit implements SlackNode {
   const SlackEdit({
     required this.replaces,
     required this.channel,
@@ -91,7 +99,7 @@ final class SlackEdit {
 /// `Withdraw<SlackReaction>`. The other Slack shapes deliberately do NOT
 /// implement it — a message is removed by its [SlackTombstone], not a
 /// withdrawal, so `Withdraw<SlackMessage>` is refused at compile time.
-final class SlackReaction implements Withdrawable {
+final class SlackReaction implements SlackNode, Withdrawable {
   const SlackReaction({
     required this.target,
     required this.emoji,
@@ -116,7 +124,7 @@ final class SlackReaction implements Withdrawable {
 ///
 /// Unannotated: every field is identity. The deletion itself is the node;
 /// the original message stays in the line (nothing is ever erased).
-final class SlackTombstone {
+final class SlackTombstone implements SlackNode {
   const SlackTombstone({
     required this.target,
     required this.by,
@@ -141,7 +149,7 @@ final class SlackTombstone {
 /// `slack_event_raw` offering.
 ///
 /// Unannotated: every field is identity.
-final class SlackEventRaw {
+final class SlackEventRaw implements SlackNode {
   const SlackEventRaw({
     required this.slackEventType,
     required this.channel,

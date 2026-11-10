@@ -38,22 +38,26 @@
     "chat_post": {
       "tool": "chat_post",
       "effect": "POST https://slack.com/api/chat.postMessage",
-      "binds": ["tools"]
+      "binds": ["tools"],
+      "placement": "home"
     },
     "chat_update": {
       "tool": "chat_update",
       "effect": "POST https://slack.com/api/chat.update",
-      "binds": ["tools"]
+      "binds": ["tools"],
+      "placement": "home"
     },
     "chat_delete": {
       "tool": "chat_delete",
       "effect": "POST https://slack.com/api/chat.delete",
-      "binds": ["tools"]
+      "binds": ["tools"],
+      "placement": "home"
     },
     "reactions_add": {
       "tool": "reactions_add",
       "effect": "POST https://slack.com/api/reactions.add",
-      "binds": ["tools"]
+      "binds": ["tools"],
+      "placement": "home"
     }
   }
 }

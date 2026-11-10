@@ -34,7 +34,7 @@ The Slack module:
   discriminator. The catch-all is what lets composition.md §2's "a node of
   a shape nothing bound is refused" rule hold without Slack events going
   missing when Slack adds a new subtype we haven't typed yet.
-- **Offers four tool effects** at a `tools` acceptor: `chat_post`,
+- **Offers four tool effects** at a `tools` acceptor (opened by intersyntactic's `agent_loop` module): `chat_post`,
   `chat_update`, `chat_delete`, `reactions_add`. These describe HTTP
   effects only; a web driver operates the Slack API and the airlock adds
   the bot token (`drivers` ruling), so the module never holds a secret.
