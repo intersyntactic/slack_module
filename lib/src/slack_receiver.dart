@@ -8,7 +8,7 @@
 /// Teams. teams-module-e2's blood-on-the-floor on the host side, relevant
 /// when that engine is wired:
 ///
-///   - The agent host (:8900) never emits `StatusChanged(running)`; the
+///   - The agent host (:8899) never emits `StatusChanged(running)`; the
 ///     user-message echo is the only "turn started" signal. Fakes must model
 ///     the host's silences, not polite versions of them.
 ///   - Resume needs `after_at` (exact time of last event) as well as `after`;
