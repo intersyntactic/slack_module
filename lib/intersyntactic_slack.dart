@@ -17,3 +17,4 @@ export 'src/slack_gate.dart';
 export 'src/slack_mirror.dart';
 export 'src/slack_receiver.dart';
 export 'src/slack_reply.dart';
+export 'src/turn_event.dart';
