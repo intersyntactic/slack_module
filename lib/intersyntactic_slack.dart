@@ -7,7 +7,11 @@
 /// files under `lib/src/` and re-exported here as they land.
 library;
 
+export 'src/journey_path_id.dart';
 export 'src/shapes.dart';
+export 'src/slack_actor_id.dart';
 export 'src/slack_client.dart';
 export 'src/slack_gate.dart';
-export 'src/slack_actor_id.dart';
+export 'src/slack_mirror.dart';
+export 'src/slack_receiver.dart';
+export 'src/slack_reply.dart';
