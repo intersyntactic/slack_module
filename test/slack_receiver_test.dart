@@ -112,6 +112,47 @@ void main() {
       expect(out.wantsTurn, isFalse);
     });
 
+    test('withdraw records the Withdraw and asks for a turn when foreign',
+        () {
+      final msgId = mirror.write(
+        _path,
+        SlackMessage(channel: 'C01', ts: '1', by: _human, text: 'edit this'),
+      );
+      final reactionId = mirror.write(
+        _path,
+        SlackReaction(target: msgId, emoji: 'thumbsup', by: _human, ts: '2'),
+      );
+      final w = Withdraw<SlackReaction>(target: reactionId, by: _human);
+      final out = receiver.withdraw(_path, w);
+
+      expect(out.withdrew, reactionId);
+      expect(out.path, equals(_path));
+      expect(out.epoch, 1);
+      expect(out.wantsTurn, isTrue);
+      expect(mirror.withdrawnBy(reactionId), same(w));
+    });
+
+    test('self-authored withdraw does not ask for a turn', () {
+      final msgId = mirror.write(
+        _path,
+        SlackMessage(channel: 'C01', ts: '1', by: _human, text: 'hi'),
+      );
+      final reactionId = mirror.write(
+        _path,
+        SlackReaction(
+          target: msgId,
+          emoji: 'arrows_counterclockwise',
+          by: _self,
+          ts: '2',
+        ),
+      );
+      final out = receiver.withdraw(
+        _path,
+        Withdraw<SlackReaction>(target: reactionId, by: _self),
+      );
+      expect(out.wantsTurn, isFalse);
+    });
+
     test('kickoff record chains in mirror order', () {
       final a = receiver.receive(
         _path,

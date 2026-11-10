@@ -97,6 +97,98 @@ void main() {
       expect(() => m.walk(fakeId).toList(), throwsStateError);
     });
 
+    test('locate finds a message by (channel, ts)', () {
+      final m = InMemorySlackMirror();
+      final id = m.write(_path(), _msg(ts: 'x-ts', channel: 'C01'));
+      final hit = m.locate('C01', 'x-ts');
+      expect(hit, isNotNull);
+      expect(hit!.id, equals(id));
+      expect(hit.path, equals(_path()));
+    });
+
+    test('locate misses when nothing was written at that (channel, ts)', () {
+      final m = InMemorySlackMirror();
+      m.write(_path(), _msg(ts: 'x-ts'));
+      expect(m.locate('C01', 'other-ts'), isNull);
+      expect(m.locate('C-other', 'x-ts'), isNull);
+    });
+
+    test('locate does not index SlackReaction (reactions have no channel)', () {
+      final m = InMemorySlackMirror();
+      final msgId = m.write(_path(), _msg(ts: 'msg-ts', channel: 'C01'));
+      m.write(
+        _path(),
+        SlackReaction(
+          target: msgId,
+          emoji: 'thumbsup',
+          by: _actor(),
+          ts: 'reaction-ts',
+        ),
+      );
+      // The reaction node's own ts is not reachable via locate.
+      expect(m.locate('C01', 'reaction-ts'), isNull);
+    });
+
+    test('pathOf returns the journey a TurnId sits on', () {
+      final m = InMemorySlackMirror();
+      final p1 = _path(channel: 'C01');
+      final p2 = _path(channel: 'C02');
+      final a = m.write(p1, _msg(ts: '1', channel: 'C01'));
+      final b = m.write(p2, _msg(ts: '2', channel: 'C02'));
+      expect(m.pathOf(a), equals(p1));
+      expect(m.pathOf(b), equals(p2));
+    });
+
+    test('findReaction matches on (target, emoji, by)', () {
+      final m = InMemorySlackMirror();
+      final msgId = m.write(_path(), _msg(ts: 'msg'));
+      final alice = _actor('U-alice');
+      final bob = _actor('U-bob');
+      final aliceThumb = m.write(
+        _path(),
+        SlackReaction(target: msgId, emoji: 'thumbsup', by: alice, ts: 'r1'),
+      );
+      m.write(
+        _path(),
+        SlackReaction(target: msgId, emoji: 'thumbsup', by: bob, ts: 'r2'),
+      );
+      expect(
+        m.findReaction(target: msgId, emoji: 'thumbsup', by: alice),
+        equals(aliceThumb),
+      );
+    });
+
+    test('findReaction returns null when target is unknown', () {
+      final m = InMemorySlackMirror();
+      final fakeId = TurnId.parse('0' * 64)!;
+      expect(
+        m.findReaction(target: fakeId, emoji: 'x', by: _actor()),
+        isNull,
+      );
+    });
+
+    test('findReaction returns null when no matching reaction exists', () {
+      final m = InMemorySlackMirror();
+      final msgId = m.write(_path(), _msg(ts: 'msg'));
+      expect(
+        m.findReaction(target: msgId, emoji: 'nope', by: _actor()),
+        isNull,
+      );
+    });
+
+    test('writeWithdraw + withdrawnBy round-trips', () {
+      final m = InMemorySlackMirror();
+      final msgId = m.write(_path(), _msg(ts: 'msg'));
+      final reactionId = m.write(
+        _path(),
+        SlackReaction(target: msgId, emoji: 'thumbsup', by: _actor(), ts: 'r'),
+      );
+      expect(m.withdrawnBy(reactionId), isNull);
+      final w = Withdraw<SlackReaction>(target: reactionId, by: _actor());
+      m.writeWithdraw(w);
+      expect(m.withdrawnBy(reactionId), same(w));
+    });
+
     test('each node shape writes successfully', () {
       final m = InMemorySlackMirror();
       final msgId = m.write(_path(), _msg(ts: '1'));

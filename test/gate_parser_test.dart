@@ -249,6 +249,148 @@ void main() {
     });
   });
 
+  group('reactions', () {
+    Map<String, dynamic> reactionDoorbell({
+      String eventName = 'slack_reaction_added',
+      String targetTs = '1700000000.000100',
+      String reaction = 'thumbsup',
+      String eventTs = '1700000100.000500',
+    }) =>
+        {
+          'event': eventName,
+          'team': team,
+          'channel': channel,
+          'thread_ts': null,
+          'user': user,
+          'reaction': reaction,
+          'target_ts': targetTs,
+          'event_ts': eventTs,
+          'raw_event': {
+            'type': eventName == 'slack_reaction_added'
+                ? 'reaction_added'
+                : 'reaction_removed',
+            'user': user,
+            'reaction': reaction,
+            'item': {
+              'type': 'message',
+              'channel': channel,
+              'ts': targetTs,
+            },
+            'event_ts': eventTs,
+          },
+        };
+
+    test('slack_reaction_added with a locate-hit becomes a SlackReaction', () {
+      final targetId = TurnId.of(Uint8List.fromList([7, 7, 7]));
+      final targetPath = JourneyId(
+        workspace: team,
+        channel: channel,
+        threadTs: '1700000000.000100',
+      );
+      final (path, node) = parseDoorbellToSlackNode(
+        reactionDoorbell(),
+        locate: (c, ts) =>
+            c == channel && ts == '1700000000.000100'
+                ? (id: targetId, path: targetPath)
+                : null,
+      );
+
+      expect(path, equals(targetPath));
+      expect(node, isA<SlackReaction>());
+      final r = node as SlackReaction;
+      expect(r.target, targetId);
+      expect(r.emoji, 'thumbsup');
+      expect(r.ts, '1700000100.000500');
+      expect(r.by.toString(), 'slack:$team/$user');
+    });
+
+    test('slack_reaction_added with no locate falls back to SlackEventRaw', () {
+      final (path, node) = parseDoorbellToSlackNode(reactionDoorbell());
+      // Best-effort JourneyId: target_ts is used as the thread anchor.
+      expect(path.threadTs, '1700000000.000100');
+      expect(node, isA<SlackEventRaw>());
+    });
+
+    test('slack_reaction_added with a locate-miss falls back to SlackEventRaw',
+        () {
+      final (_, node) = parseDoorbellToSlackNode(
+        reactionDoorbell(),
+        locate: (_, _) => null,
+      );
+      expect(node, isA<SlackEventRaw>());
+    });
+
+    test('slack_reaction_removed is refused by the SlackNode parser', () {
+      expect(
+        () => parseDoorbellToSlackNode(
+          reactionDoorbell(eventName: 'slack_reaction_removed'),
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+
+    test(
+        'parseDoorbellToWithdraw with a locate+findReaction hit returns the '
+        'Withdraw', () {
+      final messageId = TurnId.of(Uint8List.fromList([1, 2, 3]));
+      final reactionId = TurnId.of(Uint8List.fromList([4, 5, 6]));
+      final path = JourneyId(
+        workspace: team,
+        channel: channel,
+        threadTs: '1700000000.000100',
+      );
+      final out = parseDoorbellToWithdraw(
+        reactionDoorbell(eventName: 'slack_reaction_removed'),
+        locate: (c, ts) =>
+            c == channel ? (id: messageId, path: path) : null,
+        findReaction: ({required target, required emoji, required by}) =>
+            target == messageId && emoji == 'thumbsup' ? reactionId : null,
+      );
+      expect(out, isNotNull);
+      final (resolvedPath, withdraw) = out!;
+      expect(resolvedPath, equals(path));
+      expect(withdraw.target, reactionId);
+      expect(withdraw.by.toString(), 'slack:$team/$user');
+    });
+
+    test('parseDoorbellToWithdraw returns null on a locate-miss', () {
+      final out = parseDoorbellToWithdraw(
+        reactionDoorbell(eventName: 'slack_reaction_removed'),
+        locate: (_, _) => null,
+        findReaction: ({required target, required emoji, required by}) =>
+            TurnId.of(Uint8List.fromList([9])),
+      );
+      expect(out, isNull);
+    });
+
+    test('parseDoorbellToWithdraw returns null when findReaction misses', () {
+      final messageId = TurnId.of(Uint8List.fromList([1, 2, 3]));
+      final path = JourneyId(
+        workspace: team,
+        channel: channel,
+        threadTs: '1700000000.000100',
+      );
+      final out = parseDoorbellToWithdraw(
+        reactionDoorbell(eventName: 'slack_reaction_removed'),
+        locate: (_, _) => (id: messageId, path: path),
+        findReaction: ({required target, required emoji, required by}) => null,
+      );
+      expect(out, isNull);
+    });
+
+    test('parseDoorbellToWithdraw refuses a non-removed event', () {
+      expect(
+        () => parseDoorbellToWithdraw(
+          reactionDoorbell(eventName: 'slack_reaction_added'),
+          locate: (_, _) => null,
+          findReaction: ({required target, required emoji, required by}) =>
+              null,
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+  });
+
   group('round-trip through the receiver', () {
     test('a parsed SlackMessage writes to the mirror and emits wantsTurn',
         () {

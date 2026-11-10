@@ -28,9 +28,6 @@
 ///   - Edit → 🔄 → consent re-run flow (§8.2). The mirror supports it
 ///     structurally (edit nodes land as SlackEdit); the reaction-as-consent
 ///     side loops back through the turn engine and belongs with it.
-///   - Reactions. Not in the gate's wake set yet — their journey-path anchor
-///     needs a mirror lookup because reaction events don't carry thread_ts.
-///     Lands with the `Withdraw<SlackReaction>` receiver seam.
 library;
 
 import 'package:is_shapes/is_shapes.dart';
@@ -62,6 +59,27 @@ final class KickoffRecord {
   final bool wantsTurn;
 }
 
+/// The withdrawal analogue of [KickoffRecord]. A `Withdraw<SlackReaction>`
+/// does not append to the main node chain (is_shapes doctrine: withdrawals
+/// are a side mechanism, not a shape family member), so there is no new
+/// `mirroredAs` id — instead [withdrew] points at the `SlackReaction` the
+/// withdrawal takes back. The turn engine reads the undoes-a-🔄 signal
+/// here.
+final class WithdrawRecord {
+  const WithdrawRecord({
+    required this.withdrew,
+    required this.path,
+    required this.epoch,
+    required this.wantsTurn,
+  });
+
+  /// The `TurnId` of the `SlackReaction` that was taken back.
+  final TurnId withdrew;
+  final JourneyId path;
+  final int epoch;
+  final bool wantsTurn;
+}
+
 final class SlackReceiver {
   SlackReceiver({required this.mirror, required this.selfActor});
 
@@ -79,6 +97,25 @@ final class SlackReceiver {
       path: path,
       epoch: mirror.epochFor(path),
       wantsTurn: _wantsTurn(node),
+    );
+  }
+
+  /// Records a `Withdraw<SlackReaction>` and emits the record the turn
+  /// engine consumes. The withdrawal is written to the mirror's side table
+  /// (see [SlackMirror.writeWithdraw]) rather than appended to the chain.
+  ///
+  /// `wantsTurn` follows the same rule as [receive]: foreign authorship
+  /// wakes a turn, self authorship does not. A user removing their own 🔄
+  /// consent after the agent prompted for one is the textbook case for
+  /// wanting a turn (to retract the running edit-fork, per §4.1); a
+  /// self-removal is the receiver's own reply pipeline cleaning up.
+  WithdrawRecord withdraw(JourneyId path, Withdraw<SlackReaction> w) {
+    mirror.writeWithdraw(w);
+    return WithdrawRecord(
+      withdrew: w.target,
+      path: path,
+      epoch: mirror.epochFor(path),
+      wantsTurn: w.by != selfActor,
     );
   }
 

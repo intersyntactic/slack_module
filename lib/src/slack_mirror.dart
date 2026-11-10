@@ -53,6 +53,48 @@ abstract interface class SlackMirror {
   /// filter the returned node via `nodeAt`.
   TurnId? find(JourneyId path, String ts);
 
+  /// Reverse index: the node at `(channel, ts)`, with the journey it's on.
+  /// O(1) lookup against a map maintained on write. Covers shapes that carry
+  /// a channel directly — `SlackMessage`, `SlackEdit`, `SlackEventRaw`; a
+  /// `SlackReaction` has no channel of its own (it references its target) so
+  /// is indexed via that target. A `SlackTombstone` is not indexed.
+  ///
+  /// Used by the reaction path in `gate_parser.dart`: a reaction event
+  /// carries `event.item.channel` and `event.item.ts` (the target message's
+  /// ts), from which both the target's `TurnId` and the journey it sits on
+  /// are needed. Edits and tombstones could in principle use this too; they
+  /// currently continue to use [find] for continuity with the pre-reaction
+  /// code — the two indexes agree for Slack-issued ts values, which are
+  /// channel-unique.
+  ({TurnId id, JourneyId path})? locate(String channel, String ts);
+
+  /// The journey a node is on, or null if the mirror has never seen it.
+  JourneyId? pathOf(TurnId id);
+
+  /// The `TurnId` of a reaction node on the same path as [target] whose
+  /// fields `(target, emoji, by)` match the arguments; null if none exists.
+  /// Walks the chain from the head of `target`'s path. Used to resolve
+  /// `reaction_removed` to the exact `SlackReaction` it withdraws — Slack
+  /// identifies the reaction indirectly via `(message, emoji, user)`, and
+  /// `Withdraw<SlackReaction>` requires the exact `TurnId` of what it undoes
+  /// (per is_shapes' doctrine: a withdraw targets one node, not an anchor).
+  TurnId? findReaction({
+    required TurnId target,
+    required String emoji,
+    required ActorId by,
+  });
+
+  /// Records a `Withdraw<SlackReaction>` in the mirror's side table — a
+  /// withdrawal does NOT append a new [SlackNode] to the chain (the sealed
+  /// family deliberately has no `SlackReactionWithdrawn` variant; the
+  /// withdrawal IS how reactions are taken back, per is_shapes' doctrine).
+  /// After this, [withdrawnBy] returns `withdraw` for its target.
+  void writeWithdraw(Withdraw<SlackReaction> withdraw);
+
+  /// The withdrawal targeting [target], or null if it has not been withdrawn.
+  /// A reader asks this to decide whether an earlier reaction still counts.
+  Withdraw<SlackReaction>? withdrawnBy(TurnId target);
+
   /// The current epoch of [path]. Starts at 1 on first write; stays at 1
   /// until an `adopt`-like op bumps it. See §8.6.
   int epochFor(JourneyId path);
@@ -72,6 +114,15 @@ final class InMemorySlackMirror implements SlackMirror {
   final Map<JourneyId, int> _epochs = {};
   final Map<TurnId, _Entry> _nodes = {};
 
+  /// `(channel, ts) → TurnId` reverse index. Keys are built by `_indexKey`,
+  /// which concatenates channel + 0x00 + ts so a channel-id ending in digits
+  /// and a numeric ts can't collide across boundaries.
+  final Map<String, TurnId> _byChannelTs = {};
+
+  /// Side table for `Withdraw<SlackReaction>`. See [writeWithdraw] — the
+  /// doctrine keeps withdrawals off the main node chain.
+  final Map<TurnId, Withdraw<SlackReaction>> _withdrawals = {};
+
   @override
   TurnId write(JourneyId path, SlackNode node) {
     final parent = _heads[path];
@@ -79,6 +130,14 @@ final class InMemorySlackMirror implements SlackMirror {
     _nodes[id] = _Entry(parent: parent, node: node, path: path);
     _heads[path] = id;
     _epochs.putIfAbsent(path, () => 1);
+    final indexable = _channelTsKey(node);
+    if (indexable != null) {
+      // First-write-wins: a later shape with the same (channel, ts) must not
+      // shadow the original. In practice Slack's ts is channel-unique per
+      // message, so this guards only against a buggy producer putting two
+      // events at the same (channel, ts) into the mirror.
+      _byChannelTs.putIfAbsent(indexable, () => id);
+    }
     return id;
   }
 
@@ -115,7 +174,65 @@ final class InMemorySlackMirror implements SlackMirror {
     }
     return null;
   }
+
+  @override
+  ({TurnId id, JourneyId path})? locate(String channel, String ts) {
+    final id = _byChannelTs['$channel\u0000$ts'];
+    if (id == null) return null;
+    final entry = _nodes[id];
+    if (entry == null) return null;
+    return (id: id, path: entry.path);
+  }
+
+  @override
+  JourneyId? pathOf(TurnId id) => _nodes[id]?.path;
+
+  @override
+  TurnId? findReaction({
+    required TurnId target,
+    required String emoji,
+    required ActorId by,
+  }) {
+    final path = _nodes[target]?.path;
+    if (path == null) return null;
+    var cursor = _heads[path];
+    while (cursor != null) {
+      final entry = _nodes[cursor];
+      if (entry == null) return null;
+      final node = entry.node;
+      if (node is SlackReaction &&
+          node.target == target &&
+          node.emoji == emoji &&
+          node.by == by) {
+        return cursor;
+      }
+      cursor = entry.parent;
+    }
+    return null;
+  }
+
+  @override
+  void writeWithdraw(Withdraw<SlackReaction> withdraw) {
+    _withdrawals[withdraw.target] = withdraw;
+  }
+
+  @override
+  Withdraw<SlackReaction>? withdrawnBy(TurnId target) => _withdrawals[target];
 }
+
+/// Build the `(channel, ts)` index key for a node, or null for shapes that
+/// don't carry a channel of their own. A `SlackReaction` has no channel —
+/// its position in the channel space is through its target — and a
+/// `SlackTombstone` is deliberately excluded (its ts is the deletion event's
+/// ts, which is seldom asked for by `(channel, ts)` and would shadow nothing).
+String? _channelTsKey(SlackNode node) => switch (node) {
+      SlackMessage(:final channel, :final ts) => '$channel\u0000$ts',
+      SlackEdit(:final channel, :final editTs) => '$channel\u0000$editTs',
+      SlackEventRaw(:final channel, :final ts) =>
+          channel.isEmpty ? null : '$channel\u0000$ts',
+      SlackReaction() => null,
+      SlackTombstone() => null,
+    };
 
 String? _tsOf(SlackNode node) => switch (node) {
       SlackMessage(:final ts) => ts,

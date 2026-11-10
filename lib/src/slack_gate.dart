@@ -116,7 +116,12 @@ class SlackSourceSpec {
   const SlackSourceSpec({
     required this.signingSecret,
     this.teamIdAllowlist = const {},
-    this.wakeEventTypes = const {'app_mention', 'message'},
+    this.wakeEventTypes = const {
+      'app_mention',
+      'message',
+      'reaction_added',
+      'reaction_removed',
+    },
     this.wakeCommands = const {'/model', '/connect', '/forget'},
   });
 }
@@ -360,6 +365,14 @@ SlackGateDecision _event(
       digest: digest,
     );
   }
+  // Reaction events put the target under `event.item`, not at `event.channel`
+  // / `event.ts`, and carry no `thread_ts` — the journey anchor only becomes
+  // known after a mirror lookup, which the parser owns. So the reaction
+  // branch goes out with `thread_ts: null` and a `target_ts`, and the parser
+  // does the rest.
+  if (type == 'reaction_added' || type == 'reaction_removed') {
+    return _reactionEvent(event, type, teamId, digest);
+  }
   final channel = event['channel'];
   if (channel is! String || channel.isEmpty) {
     return SlackGateDecision(
@@ -402,6 +415,71 @@ SlackGateDecision _event(
       'event_ts': ts is String ? ts : null,
       'subtype': subtype is String ? subtype : null,
       'raw_thread_ts': threadTs is String && threadTs.isNotEmpty ? threadTs : null,
+      'raw_event': event.cast<String, dynamic>(),
+    },
+    digest: digest,
+  );
+}
+
+SlackGateDecision _reactionEvent(
+  Map<dynamic, dynamic> event,
+  String type,
+  String teamId,
+  String digest,
+) {
+  final item = event['item'];
+  if (item is! Map) {
+    return SlackGateDecision(
+      SlackGateOutcome.reject,
+      'reaction event missing item',
+      digest: digest,
+    );
+  }
+  // Only message reactions matter to the mirror. `file`/`file_comment` items
+  // exist in Slack's API but have no journey meaning here.
+  final itemType = item['type'];
+  if (itemType != 'message') {
+    return SlackGateDecision(
+      SlackGateOutcome.ignore,
+      'reaction on non-message item "$itemType"',
+      digest: digest,
+    );
+  }
+  final channel = item['channel'];
+  final targetTs = item['ts'];
+  if (channel is! String || channel.isEmpty || targetTs is! String) {
+    return SlackGateDecision(
+      SlackGateOutcome.reject,
+      'reaction item missing channel or ts',
+      digest: digest,
+    );
+  }
+  final user = event['user'];
+  final reaction = event['reaction'];
+  final eventTs = event['event_ts'];
+  if (user is! String || reaction is! String || eventTs is! String) {
+    return SlackGateDecision(
+      SlackGateOutcome.reject,
+      'reaction event missing user, reaction or event_ts',
+      digest: digest,
+    );
+  }
+  return SlackGateDecision(
+    SlackGateOutcome.trigger,
+    'event "$type"',
+    message: {
+      'event': type == 'reaction_added'
+          ? 'slack_reaction_added'
+          : 'slack_reaction_removed',
+      'team': teamId,
+      'channel': channel,
+      // No thread_ts in a reaction event — the parser resolves the journey
+      // via mirror.locate(channel, target_ts).
+      'thread_ts': null,
+      'user': user,
+      'reaction': reaction,
+      'target_ts': targetTs,
+      'event_ts': eventTs,
       'raw_event': event.cast<String, dynamic>(),
     },
     digest: digest,

@@ -93,6 +93,10 @@ Future<void> main() async {
       'slack bot: kickoff ${r.mirroredAs} path=${r.path.channel}/${r.path.threadTs} '
       'epoch=${r.epoch} wantsTurn=${r.wantsTurn}',
     ),
+    onWithdraw: (r) => stderr.writeln(
+      'slack bot: withdraw ${r.withdrew} path=${r.path.channel}/${r.path.threadTs} '
+      'epoch=${r.epoch} wantsTurn=${r.wantsTurn}',
+    ),
   );
   final server = await HttpServer.bind(address, port);
   stdout.writeln('slack bot listening on ${address.address}:${server.port}');
@@ -124,6 +128,7 @@ class SlackBot {
     this.mirror,
     ActorId? selfActor,
     this.onKickoff,
+    this.onWithdraw,
     this.onCommand,
     DateTime Function()? now,
     this.bodyTimeout = const Duration(seconds: 10),
@@ -149,6 +154,12 @@ class SlackBot {
   /// What to do with each [KickoffRecord] the receiver mints. Task 11 wires
   /// this to the agent-host client; in tests it's a list-appender.
   final void Function(KickoffRecord record)? onKickoff;
+
+  /// What to do with each [WithdrawRecord]. Reaction withdrawals (the
+  /// is_shapes-doctrine way SlackReactions are taken back) travel this seam
+  /// instead of [onKickoff] because a withdrawal is not a new mirror node;
+  /// it is a side-table write plus a signal to the turn engine.
+  final void Function(WithdrawRecord record)? onWithdraw;
 
   /// Slash-command sink. Slash commands have no mirror path — they're a
   /// different surface. Defaulting to null drops them with a log line.
@@ -269,9 +280,29 @@ class SlackBot {
         // just isn't engaged. Tests that skip the mirror land here.
         return;
       }
+      if (event == 'slack_reaction_removed') {
+        // Withdrawals don't produce a SlackNode, so they travel their own
+        // parser + receiver seam. A null return means the mirror has no
+        // record of the reaction being undone — log and drop; nothing is
+        // dropped silently because the gate's log line already said we
+        // woke on it.
+        final out = parseDoorbellToWithdraw(
+          doorbell,
+          locate: mirror!.locate,
+          findReaction: mirror!.findReaction,
+        );
+        if (out == null) {
+          log('slack bot: reaction_removed with no mirror target — dropped');
+          return;
+        }
+        final record = receiver.withdraw(out.$1, out.$2);
+        onWithdraw?.call(record);
+        return;
+      }
       final (path, node) = parseDoorbellToSlackNode(
         doorbell,
         lookup: mirror!.find,
+        locate: mirror!.locate,
       );
       final record = receiver.receive(path, node);
       onKickoff?.call(record);

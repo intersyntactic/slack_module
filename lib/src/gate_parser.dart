@@ -21,15 +21,22 @@
 ///
 /// What this parser DOES NOT cover yet:
 ///
-///   - Reactions. `reaction_added` and `reaction_removed` are not in the
-///     gate's default wake set yet because their journey-path anchor lives
-///     on the target message, not on the reaction event itself, and resolving
-///     it needs a mirror lookup that'd widen this slice. They land once the
-///     `Withdraw<SlackReaction>` receiver seam is designed.
 ///   - Slash commands. They don't flow into the mirror — they are consumed by
 ///     the model-selection surface — so the parser deliberately rejects
 ///     `slack_command` doorbells with an [ArgumentError] rather than silently
 ///     fabricating a SlackEventRaw.
+///
+/// Reactions:
+///
+///   - `slack_reaction_added` is handled by this parser, emitting a
+///     `SlackReaction`. It needs a [SlackChannelTsLocate] to resolve the
+///     target message's `TurnId` and `JourneyId` in one query. On a miss
+///     (the mirror has never seen the target) the parser falls back to
+///     `SlackEventRaw` keyed as if the target's ts were the thread anchor —
+///     correct for reactions-on-top-level messages, best-effort otherwise.
+///   - `slack_reaction_removed` is handled by [parseDoorbellToWithdraw]
+///     instead, which produces a `Withdraw<SlackReaction>`. A withdrawal is
+///     not a `SlackNode`, so it cannot live in this function's return type.
 library;
 
 import 'dart:convert';
@@ -46,17 +53,47 @@ import 'slack_actor_id.dart';
 /// parser falls back to `SlackEventRaw` so nothing is dropped.
 typedef SlackMessageLookup = TurnId? Function(JourneyId path, String ts);
 
+/// Resolves `(channel, ts)` to the mirrored node's id and the journey it
+/// sits on, in one query. Used by the reaction path — a reaction event
+/// carries `event.item.channel` and `event.item.ts` but no thread_ts, so
+/// the journey can only be learned from a mirror index.
+typedef SlackChannelTsLocate =
+    ({TurnId id, JourneyId path})? Function(String channel, String ts);
+
+/// Resolves `(target, emoji, by)` to the `TurnId` of the matching
+/// `SlackReaction` on `target`'s path. `Withdraw<SlackReaction>` requires
+/// the exact `TurnId` of what it undoes (is_shapes doctrine: a withdraw
+/// targets one node, not an anchor); Slack identifies the reaction
+/// indirectly, so we need the mirror to walk and match.
+typedef SlackReactionFinder = TurnId? Function({
+  required TurnId target,
+  required String emoji,
+  required ActorId by,
+});
+
 (JourneyId, SlackNode) parseDoorbellToSlackNode(
   Map<String, dynamic> doorbell, {
   SlackMessageLookup? lookup,
+  SlackChannelTsLocate? locate,
 }) {
   final event = doorbell['event'];
+  if (event == 'slack_reaction_added') {
+    return _reactionAdded(doorbell, locate);
+  }
+  if (event == 'slack_reaction_removed') {
+    throw ArgumentError.value(
+      event,
+      'doorbell[event]',
+      'use parseDoorbellToWithdraw for slack_reaction_removed; '
+          'Withdraw<SlackReaction> is not a SlackNode',
+    );
+  }
   if (event != 'slack_mention' && event != 'slack_message') {
     throw ArgumentError.value(
       event,
       'doorbell[event]',
-      'parser handles slack_mention and slack_message only; '
-          'slack_command is consumed elsewhere',
+      'parser handles slack_mention, slack_message and '
+          'slack_reaction_added; slack_command is consumed elsewhere',
     );
   }
 
@@ -161,6 +198,93 @@ typedef SlackMessageLookup = TurnId? Function(JourneyId path, String ts);
 
   // Unrecognised subtype — faithful mirror, no field loss.
   return (path, _raw(raw, channel, anchor, workspace));
+}
+
+/// Resolves `slack_reaction_added` into a `(JourneyId, SlackReaction)`.
+/// On a locate-miss (mirror has never seen the target) falls back to
+/// `SlackEventRaw` keyed as if the target's ts were the thread anchor —
+/// correct for reactions on top-level messages, best-effort otherwise.
+(JourneyId, SlackNode) _reactionAdded(
+  Map<String, dynamic> doorbell,
+  SlackChannelTsLocate? locate,
+) {
+  final workspace = doorbell['team'] as String;
+  final channel = doorbell['channel'] as String;
+  final userId = doorbell['user'] as String;
+  final emoji = doorbell['reaction'] as String;
+  final targetTs = doorbell['target_ts'] as String;
+  final eventTs = doorbell['event_ts'] as String;
+  final raw = doorbell['raw_event'] as Map<String, dynamic>? ?? const {};
+
+  final hit = locate?.call(channel, targetTs);
+  if (hit == null) {
+    // No target in the mirror — can't anchor the SlackReaction (its `target`
+    // field is required). Fall back to a faithful raw record keyed on the
+    // best-available journey, so nothing is dropped. target_ts is usually
+    // the thread_ts for top-level reactions; for mid-thread reactions this
+    // is a best-effort guess, deliberately NOT fabricating a SlackReaction.
+    final path = JourneyId(
+      workspace: workspace,
+      channel: channel,
+      threadTs: targetTs,
+    );
+    return (path, _raw(raw, channel, targetTs, workspace, userId: userId));
+  }
+  return (
+    hit.path,
+    SlackReaction(
+      target: hit.id,
+      emoji: emoji,
+      by: SlackActorId.forWorkspace(
+        workspaceId: workspace,
+        userId: userId,
+      ),
+      ts: eventTs,
+    ),
+  );
+}
+
+/// Turns a `slack_reaction_removed` doorbell into a
+/// `(JourneyId, Withdraw<SlackReaction>)`, or null when the mirror has no
+/// record of the target message or the reaction being undone.
+///
+/// Slack identifies the reaction indirectly by `(target_ts, reaction, user)`;
+/// `Withdraw<SlackReaction>` needs the exact `TurnId` of the original
+/// `SlackReaction` node (is_shapes doctrine: a withdraw targets one node,
+/// not an anchor). So the parser does two lookups: [locate] to resolve the
+/// target message's id and journey, [findReaction] to resolve the specific
+/// reaction node on that journey.
+///
+/// A null return is not an error — the mirror may be cold, or the original
+/// `reaction_added` may have been missed. The caller logs and drops.
+(JourneyId, Withdraw<SlackReaction>)? parseDoorbellToWithdraw(
+  Map<String, dynamic> doorbell, {
+  required SlackChannelTsLocate locate,
+  required SlackReactionFinder findReaction,
+}) {
+  final event = doorbell['event'];
+  if (event != 'slack_reaction_removed') {
+    throw ArgumentError.value(
+      event,
+      'doorbell[event]',
+      'parseDoorbellToWithdraw handles slack_reaction_removed only',
+    );
+  }
+  final workspace = doorbell['team'] as String;
+  final channel = doorbell['channel'] as String;
+  final userId = doorbell['user'] as String;
+  final emoji = doorbell['reaction'] as String;
+  final targetTs = doorbell['target_ts'] as String;
+
+  final target = locate(channel, targetTs);
+  if (target == null) return null;
+  final by = SlackActorId.forWorkspace(
+    workspaceId: workspace,
+    userId: userId,
+  );
+  final reactionId = findReaction(target: target.id, emoji: emoji, by: by);
+  if (reactionId == null) return null;
+  return (target.path, Withdraw<SlackReaction>(target: reactionId, by: by));
 }
 
 SlackEventRaw _raw(

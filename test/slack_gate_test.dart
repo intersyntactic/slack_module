@@ -236,6 +236,73 @@ void main() {
       expect(d.message?['event'], 'slack_message');
     });
 
+    test('reaction_added on a message triggers slack_reaction_added', () {
+      final body = jsonBody({
+        'type': 'event_callback',
+        'team_id': team,
+        'event': {
+          'type': 'reaction_added',
+          'user': 'U42',
+          'reaction': 'thumbsup',
+          'item': {
+            'type': 'message',
+            'channel': 'C999',
+            'ts': '1700000000.000100',
+          },
+          'event_ts': '1700000500.000700',
+        },
+      });
+      final d = run(body: body, headers: signedHeaders(body));
+      expect(d.outcome, SlackGateOutcome.trigger);
+      expect(d.message?['event'], 'slack_reaction_added');
+      expect(d.message?['channel'], 'C999');
+      expect(d.message?['target_ts'], '1700000000.000100');
+      expect(d.message?['event_ts'], '1700000500.000700');
+      expect(d.message?['reaction'], 'thumbsup');
+      expect(d.message?['user'], 'U42');
+      // No thread_ts in a reaction event — the parser resolves the journey
+      // from the mirror.
+      expect(d.message?['thread_ts'], isNull);
+    });
+
+    test('reaction_removed on a message triggers slack_reaction_removed', () {
+      final body = jsonBody({
+        'type': 'event_callback',
+        'team_id': team,
+        'event': {
+          'type': 'reaction_removed',
+          'user': 'U42',
+          'reaction': 'thumbsup',
+          'item': {
+            'type': 'message',
+            'channel': 'C999',
+            'ts': '1700000000.000100',
+          },
+          'event_ts': '1700000600.000800',
+        },
+      });
+      final d = run(body: body, headers: signedHeaders(body));
+      expect(d.outcome, SlackGateOutcome.trigger);
+      expect(d.message?['event'], 'slack_reaction_removed');
+      expect(d.message?['target_ts'], '1700000000.000100');
+    });
+
+    test('reaction on a non-message item is ignored, not rejected', () {
+      final body = jsonBody({
+        'type': 'event_callback',
+        'team_id': team,
+        'event': {
+          'type': 'reaction_added',
+          'user': 'U42',
+          'reaction': 'thumbsup',
+          'item': {'type': 'file', 'file': 'F1'},
+          'event_ts': '1700000500.000700',
+        },
+      });
+      final d = run(body: body, headers: signedHeaders(body));
+      expect(d.outcome, SlackGateOutcome.ignore);
+    });
+
     test('a quiet event (channel_created) is ignored, not rejected', () {
       final body = jsonBody({
         'type': 'event_callback',
