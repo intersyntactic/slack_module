@@ -1,7 +1,7 @@
 import 'package:intersyntactic_slack/intersyntactic_slack.dart';
 import 'package:test/test.dart';
 
-final _path = JourneyPathId(
+final _path = JourneyId(
   workspace: 'T01ABC',
   channel: 'C01',
   threadTs: '1730000000.000100',

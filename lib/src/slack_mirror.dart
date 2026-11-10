@@ -1,4 +1,4 @@
-/// The externally-anchored mirror: one head per [JourneyPathId], with every
+/// The externally-anchored mirror: one head per [JourneyId], with every
 /// [SlackNode] write minting a [TurnId] from `sha256(parent-id-hex ++ 0x00 ++
 /// shape-tag ++ 0x00 ++ canonical-json(fields))`.
 ///
@@ -6,7 +6,7 @@
 ///
 /// - **Keying.** Teams' stand-in has one linear path with no key. Slack lives
 ///   in many threads at once, so the mirror must address a path. A value-typed
-///   [JourneyPathId] in, not a bare String.
+///   [JourneyId] in, not a bare String.
 /// - **Same id formula as Teams' stand-in** (parent id + the node's own bytes),
 ///   so when Teams grows past the stand-in, the id spaces line up and nothing
 ///   has to renegotiate what a TurnId means.
@@ -26,7 +26,7 @@ import 'dart:typed_data';
 
 import 'package:is_shapes/is_shapes.dart';
 
-import 'journey_path_id.dart';
+import 'journey_id.dart';
 import 'shapes.dart';
 
 abstract interface class SlackMirror {
@@ -34,10 +34,10 @@ abstract interface class SlackMirror {
   /// If [path] has no head yet, [node] becomes the head (its parent is the
   /// empty digest-seed, so first-node ids are reproducible per-path from
   /// path-independent inputs).
-  TurnId write(JourneyPathId path, SlackNode node);
+  TurnId write(JourneyId path, SlackNode node);
 
   /// The current head of [path], or null if nothing has been written there.
-  TurnId? headFor(JourneyPathId path);
+  TurnId? headFor(JourneyId path);
 
   /// The [TurnId] on [path] whose node's Slack `ts` equals [ts], or null if
   /// no such node is in the chain. Used by `gate_parser.dart`'s
@@ -51,11 +51,11 @@ abstract interface class SlackMirror {
   /// so the result is always the original message, but a caller that needs
   /// to distinguish "find a message" from "find any node at this ts" should
   /// filter the returned node via `nodeAt`.
-  TurnId? find(JourneyPathId path, String ts);
+  TurnId? find(JourneyId path, String ts);
 
   /// The current epoch of [path]. Starts at 1 on first write; stays at 1
   /// until an `adopt`-like op bumps it. See §8.6.
-  int epochFor(JourneyPathId path);
+  int epochFor(JourneyId path);
 
   /// Walks [head] back to the root, yielding each node in reverse-chronological
   /// order (newest first). Throws [StateError] if [head] is not in the mirror.
@@ -68,12 +68,12 @@ abstract interface class SlackMirror {
 final class InMemorySlackMirror implements SlackMirror {
   InMemorySlackMirror();
 
-  final Map<JourneyPathId, TurnId> _heads = {};
-  final Map<JourneyPathId, int> _epochs = {};
+  final Map<JourneyId, TurnId> _heads = {};
+  final Map<JourneyId, int> _epochs = {};
   final Map<TurnId, _Entry> _nodes = {};
 
   @override
-  TurnId write(JourneyPathId path, SlackNode node) {
+  TurnId write(JourneyId path, SlackNode node) {
     final parent = _heads[path];
     final id = _mintId(parent, node);
     _nodes[id] = _Entry(parent: parent, node: node, path: path);
@@ -83,10 +83,10 @@ final class InMemorySlackMirror implements SlackMirror {
   }
 
   @override
-  TurnId? headFor(JourneyPathId path) => _heads[path];
+  TurnId? headFor(JourneyId path) => _heads[path];
 
   @override
-  int epochFor(JourneyPathId path) => _epochs[path] ?? 1;
+  int epochFor(JourneyId path) => _epochs[path] ?? 1;
 
   @override
   Iterable<SlackNode> walk(TurnId head) sync* {
@@ -105,7 +105,7 @@ final class InMemorySlackMirror implements SlackMirror {
   SlackNode? nodeAt(TurnId id) => _nodes[id]?.node;
 
   @override
-  TurnId? find(JourneyPathId path, String ts) {
+  TurnId? find(JourneyId path, String ts) {
     var cursor = _heads[path];
     while (cursor != null) {
       final entry = _nodes[cursor];
@@ -129,7 +129,7 @@ class _Entry {
   const _Entry({required this.parent, required this.node, required this.path});
   final TurnId? parent;
   final SlackNode node;
-  final JourneyPathId path;
+  final JourneyId path;
 }
 
 TurnId _mintId(TurnId? parent, SlackNode node) {

@@ -1,4 +1,4 @@
-/// The handler side of §4.1: takes a parsed [SlackNode] + its [JourneyPathId],
+/// The handler side of §4.1: takes a parsed [SlackNode] + its [JourneyId],
 /// writes it to the mirror, and emits a [KickoffRecord] carrying what a turn
 /// engine needs to decide whether to run.
 ///
@@ -35,7 +35,7 @@ library;
 
 import 'package:is_shapes/is_shapes.dart';
 
-import 'journey_path_id.dart';
+import 'journey_id.dart';
 import 'shapes.dart';
 import 'slack_mirror.dart';
 
@@ -57,7 +57,7 @@ final class KickoffRecord {
   });
 
   final TurnId mirroredAs;
-  final JourneyPathId path;
+  final JourneyId path;
   final int epoch;
   final bool wantsTurn;
 }
@@ -72,7 +72,7 @@ final class SlackReceiver {
   /// receiver flags them `wantsTurn: false` to prevent self-reaction loops.
   final ActorId selfActor;
 
-  KickoffRecord receive(JourneyPathId path, SlackNode node) {
+  KickoffRecord receive(JourneyId path, SlackNode node) {
     final id = mirror.write(path, node);
     return KickoffRecord(
       mirroredAs: id,

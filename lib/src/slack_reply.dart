@@ -19,7 +19,7 @@ library;
 
 import 'package:is_shapes/is_shapes.dart';
 
-import 'journey_path_id.dart';
+import 'journey_id.dart';
 import 'outbound_metadata.dart';
 import 'shapes.dart';
 import 'slack_client.dart';
@@ -39,7 +39,7 @@ final class SlackReplyOutcome {
   });
 
   final TurnId mirroredAs;
-  final JourneyPathId path;
+  final JourneyId path;
   final int epoch;
   final String? postedTs;
   final SlackApiError? error;
@@ -77,7 +77,7 @@ final class SlackReply {
   ///   3. `client.chatPostMessage(...)`. On failure, caught and surfaced in
   ///      [SlackReplyOutcome.error]; mirror node stays.
   Future<SlackReplyOutcome> post({
-    required JourneyPathId path,
+    required JourneyId path,
     required String text,
   }) async {
     final provisionalTs = _mintProvisionalTs();

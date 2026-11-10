@@ -1,4 +1,4 @@
-/// Turns a `slackGate` doorbell payload into a `(JourneyPathId, SlackNode)`
+/// Turns a `slackGate` doorbell payload into a `(JourneyId, SlackNode)`
 /// pair the receiver can feed straight into its mirror.
 ///
 /// This is the "doorbell-carries-text" side of §8.1's open decision: the gate
@@ -36,7 +36,7 @@ import 'dart:convert';
 
 import 'package:is_shapes/is_shapes.dart';
 
-import 'journey_path_id.dart';
+import 'journey_id.dart';
 import 'shapes.dart';
 import 'slack_actor_id.dart';
 
@@ -44,9 +44,9 @@ import 'slack_actor_id.dart';
 /// returns null if the mirror has no record of it. Typically backed by the
 /// mirror itself. A null resolver, or a null return, is not an error: the
 /// parser falls back to `SlackEventRaw` so nothing is dropped.
-typedef SlackMessageLookup = TurnId? Function(JourneyPathId path, String ts);
+typedef SlackMessageLookup = TurnId? Function(JourneyId path, String ts);
 
-(JourneyPathId, SlackNode) parseDoorbellToSlackNode(
+(JourneyId, SlackNode) parseDoorbellToSlackNode(
   Map<String, dynamic> doorbell, {
   SlackMessageLookup? lookup,
 }) {
@@ -63,7 +63,7 @@ typedef SlackMessageLookup = TurnId? Function(JourneyPathId path, String ts);
   final workspace = doorbell['team'] as String;
   final channel = doorbell['channel'] as String;
   final anchor = doorbell['thread_ts'] as String;
-  final path = JourneyPathId(
+  final path = JourneyId(
     workspace: workspace,
     channel: channel,
     threadTs: anchor,

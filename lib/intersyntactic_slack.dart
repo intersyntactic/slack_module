@@ -8,7 +8,7 @@
 library;
 
 export 'src/gate_parser.dart';
-export 'src/journey_path_id.dart';
+export 'src/journey_id.dart';
 export 'src/outbound_metadata.dart';
 export 'src/shapes.dart';
 export 'src/slack_actor_id.dart';

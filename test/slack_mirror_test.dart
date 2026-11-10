@@ -2,8 +2,8 @@ import 'package:intersyntactic_slack/intersyntactic_slack.dart';
 import 'package:is_shapes/is_shapes.dart';
 import 'package:test/test.dart';
 
-JourneyPathId _path({String channel = 'C01', String ts = '1730000000.000100'}) =>
-    JourneyPathId(workspace: 'T01ABC', channel: channel, threadTs: ts);
+JourneyId _path({String channel = 'C01', String ts = '1730000000.000100'}) =>
+    JourneyId(workspace: 'T01ABC', channel: channel, threadTs: ts);
 
 ActorId _actor([String user = 'U01']) =>
     SlackActorId.forWorkspace(workspaceId: 'T01ABC', userId: user);
