@@ -5,7 +5,7 @@
     "slack_mirror": {
       "version": "1",
       "shape": "a Slack-anchored node: message, edit, reaction, tombstone, or slack_event_raw (loosely typed with a slack_event_type discriminator)",
-      "use": "mirror a Slack-anchored line; every node bound here is appended to the line in the head's order, so the mirror never drifts from what Slack sent",
+      "use": "mirror a Slack-anchored journey path; every node bound here is appended to the journey path in the head's order, so the mirror never drifts from what Slack sent",
       "from": ["modules"]
     }
   },

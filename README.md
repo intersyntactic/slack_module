@@ -2,7 +2,7 @@
 
 A Slack adapter for intersyntactic. An @-mention in Slack becomes a turn of a
 run on an intersyntactic agent, with any model the sender has credentials for.
-Threads are the conversation; the airlock, given this line's rules, decides
+Threads are the conversation; the airlock, given this journey path's rules, decides
 each effect the agent asks for, and a driver operates Slack.
 
 A module, by intersyntactic's own shape: modules live in their own repos.
@@ -50,11 +50,11 @@ dart test
   the acceptors it names. Our manifest at [`.intersyntactic/manifest.json`](./.intersyntactic/manifest.json)
   declares one acceptor (`slack_mirror`) and nine offerings (five node shapes
   + four tool effects).
-- `docs/externally-anchored-lines.md` — the Slack-specific design. A
-  Slack-anchored line has no git worktree; its writable state lives at
-  `~/.intersyntactic/lines/<line_id>/`. The orchestrator (composition.md §7)
-  resolves a webhook delivery to its line before anything becomes a node.
+- `docs/externally-anchored-journey-paths.md` — the Slack-specific design. A
+  Slack-anchored journey path has no git worktree; its writable state lives at
+  `~/.intersyntactic/journey_paths/<journey_path_id>/`. The orchestrator (composition.md §7)
+  resolves a webhook delivery to its journey path before anything becomes a node.
 - `enspyrco/intersyntactic/docs/design/distributed.md` — the always-on target:
   a run is a tree of turns (grow-only), a head (one writer, epoch-fenced), and
-  a working tree. For Slack lines, "working tree" is the home-pinned data
+  a working tree. For Slack journey paths, "working tree" is the home-pinned data
   directory above, not a git checkout.

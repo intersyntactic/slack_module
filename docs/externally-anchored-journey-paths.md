@@ -1,4 +1,4 @@
-# Externally-anchored lines
+# Externally-anchored journey paths
 
 **Status:** draft, 2026-10-23, aligned 2026-11-05 to [`composition.md`](https://github.com/enspyrco/intersyntactic/blob/main/docs/design/composition.md)
 (PROPOSED 2026-11-04, ratified by Nick as the state of truth 2026-11-05). For a PR
@@ -11,7 +11,7 @@ once settled.**
 (acceptors, offerings, bindings, deliveries), [`distributed.md`](../../intersyntactic/docs/design/distributed.md) §1
 (a run is a tree of turns, a head, a working tree) and
 [`authority.md`](../../intersyntactic/docs/design/authority.md) §3 (invariants N, H,
-L, T, E). This note names a kind of line beyond "worktree-pinned" and the
+L, T, E). This note names a kind of journey path beyond "worktree-pinned" and the
 service-local case `authority.md` already allows.
 **Forcing function:** `enspyrco/intersyntactic-slack`, the first inbound-event
 adapter. The Slack case is the concrete instance below; the type generalises.
@@ -21,10 +21,10 @@ adapter. The Slack case is the concrete instance below; the type generalises.
 1. **Each user runs their agent on their own server.** The Slack adapter is a
    federation, not a monolith. A tiny workspace **shim** receives webhooks and
    routes; each user's own intersyntactic install does the agent work.
-2. **The authoritative node store for an externally-anchored line is the external
+2. **The authoritative node store for an externally-anchored journey path is the external
    source itself.** Slack is the source of truth for Slack threads and the Slack KB.
    The local tree is a mirror, kept fresh by the event stream.
-3. **All contributions to a line are node appends.** Edits, deletions, and
+3. **All contributions to a journey path are node appends.** Edits, deletions, and
    reactions are not special signals; they are instances of this primitive,
    with particular node-shapes. The state model has no mutation; the head
    serialises append-order. §1 states this; §3 names the module-level
@@ -40,28 +40,28 @@ adapter. The Slack case is the concrete instance below; the type generalises.
 
 ## 1. The type
 
-An **externally-anchored line** is a line (per `authority.md` §1) where:
+An **externally-anchored journey path** is a journey path (per `authority.md` §1) where:
 
 - the authoritative node store is a system *outside* intersyntactic (Slack, an
   IMAP mailbox, a GitHub issue, a Google Doc);
 - the local tree is a **mirror** of that store, written write-if-absent by nodes
   derived from the external system's event stream;
-- the line has **no git worktree**. The "world" the line touches is the external
+- the journey path has **no git worktree**. The "world" the journey path touches is the external
   source, not a filesystem. `authority.md` §1.3's "the world pins the writer"
   still holds; the world is just a SaaS instead of a working tree.
 
-The line's **home** is the service that owns it (the user's intersyntactic
-install, in the Slack case). The line's **lock** sits in a service-local path
-(`~/.intersyntactic/lines/<line_id>/line.lock`), not in a worktree's git dir.
-`authority.md` L generalises: the lock lives where the line's writable state
+The journey path's **home** is the service that owns it (the user's intersyntactic
+install, in the Slack case). The journey path's **lock** sits in a service-local path
+(`~/.intersyntactic/journey_paths/<journey_path_id>/journey_path.lock`), not in a worktree's git dir.
+`authority.md` L generalises: the lock lives where the journey path's writable state
 lives, which here means the service's own data directory.
 
 Everything else carries over unchanged. **N** holds (any process writes a node,
 union merges); **H** holds (owner CASes the head); **E** holds and matters more
-here than for a worktree line, because the "world" (the external SaaS) is where
-`(line, epoch)` as a far-side mark actually fences a zombie's writes.
+here than for a worktree journey path, because the "world" (the external SaaS) is where
+`(journey_path, epoch)` as a far-side mark actually fences a zombie's writes.
 
-**The state model is pure-append.** Every touch on a line is a node written
+**The state model is pure-append.** Every touch on a journey path is a node written
 into its tree. The head's role is to serialise append-order; nothing is ever
 mutated. "Edit," "delete," and "reaction" are not special events in the state
 model — they are node-shapes whose semantics are supplied by downstream readers
@@ -85,17 +85,17 @@ and where it lands, is declared in the module's manifest per composition.md:
 
   receiver  ──side-effects──▶  external source
    (via tool calls that                      (sink shape: `slack.chat_post`,
-    carry (line, epoch))                      `imap.append`, `github.comment`;
+    carry (journey_path, epoch))              `imap.append`, `github.comment`;
                                               far-side mark carries the fence)
 ```
 
 The **shim** is small and auditable. Its job is: verify the external source's
 signature, project each event to a minimal doorbell (external IDs only, no
-content — see N below), look up the owner for that line, forward. Nothing else.
+content — see N below), look up the owner for that journey path, forward. Nothing else.
 
-The **receiver** is an ordinary line owner, with one additional responsibility:
-it maintains a mirror of the external store for its owned lines, updated by the
-doorbells it receives. The mirror is the line's local node store.
+The **receiver** is an ordinary journey path owner, with one additional responsibility:
+it maintains a mirror of the external store for its owned journey paths, updated by the
+doorbells it receives. The mirror is the journey path's local node store.
 
 ### Edits, deletes, reactions as nodes
 
@@ -109,7 +109,7 @@ substitute their own node-shapes under the same rule. The mapping, for Slack:
 | `message_changed` | A child of the original: `{kind: edit, replaces: <original_id>, text, by, ts}` |
 | `message_deleted` | A tombstone child: `{kind: tombstone, by, ts}` |
 | `reaction_added` | An annotation child of the target: `{kind: reaction, emoji, by, ts}` |
-| The agent's own reply, written write-ahead per `authority.md` W1 | Normal `{kind: message}`, authored by the agent, with the `(line, epoch)` far-side mark embedded in Slack-side metadata before `chat.postMessage` runs |
+| The agent's own reply, written write-ahead per `authority.md` W1 | Normal `{kind: message}`, authored by the agent, with the `(journey_path, epoch)` far-side mark embedded in Slack-side metadata before `chat.postMessage` runs |
 
 The thread's "current state" for the agent's reading is **derived**: follow edit
 chains to the latest text, skip tombstoned branches, surface reactions as
@@ -118,8 +118,8 @@ the object store, same shape as `authority.md` §5's first-parent walk.
 
 ## 3. The module manifest: acceptors and offerings
 
-Per §1, a line's state is a tree of appended nodes. A module that binds to a
-line declares, in its manifest (composition.md §6), two things:
+Per §1, a journey path's state is a tree of appended nodes. A module that binds to a
+journey path declares, in its manifest (composition.md §6), two things:
 
 - **Acceptors**: places the module opens for others. An acceptor has a
   *shape* (what can bind here), a *use* (what the module does with
@@ -135,16 +135,16 @@ For the Slack module:
 
 - **One acceptor**, `slack_mirror`. Shape: a Slack-anchored node
   (`message`, `edit`, `reaction`, `tombstone`, or `slack_event_raw`).
-  Use: keep the mirror of a Slack-anchored line in sync with Slack.
+  Use: keep the mirror of a Slack-anchored journey path in sync with Slack.
   From: `modules` (the orchestrator per composition.md §7 delivers
-  nodes here after resolving a webhook to its line).
+  nodes here after resolving a webhook to its journey path).
 - **Five node-shape offerings** at `slack_mirror`: the four typed shapes
   plus the catch-all `slack_event_raw`. The catch-all carries a
   `slack_event_type` discriminator so composition.md §2's rule — *a node
   of a shape nothing bound is refused* — holds even for Slack event
   subtypes we haven't typed explicitly. "Loosely typed with a known
   discriminator" is what lets "every shape bound at composition" hold
-  for mirror-style lines without losing events Slack adds later.
+  for mirror-style journey paths without losing events Slack adds later.
 - **Four tool offerings** at a `tools` acceptor (opened by intersyntactic's `agent_loop` module): `chat_post`,
   `chat_update`, `chat_delete`, `reactions_add`. These describe HTTP
   effects only; a web driver operates the Slack API and the airlock
@@ -172,10 +172,10 @@ driver not owned by this module.
 
 ## 4. Three concrete instances
 
-### 4.1 Slack thread as a line
+### 4.1 Slack thread as a journey path
 
-The first and most obvious instance. The line's id is derived from `(workspace,
-channel, thread_ts)`. One head per line; `authority.md` H's CAS applies. Mirror
+The first and most obvious instance. The journey path's id is derived from `(workspace,
+channel, thread_ts)`. One head per journey path; `authority.md` H's CAS applies. Mirror
 updates on every thread event the owner is subscribed to. Agent's turn runs
 read from the mirror (no Slack API round-trip in the critical path);
 agent's reply writes a mirror node and *then* calls `chat.postMessage`
@@ -188,10 +188,10 @@ re-runs the turn from the edited message as the new head. The old answer path
 is preserved as a branch and is readable via `authority.md` §5's `--first-parent`
 walk if the user wants it.
 
-### 4.2 Slack KB as a line
+### 4.2 Slack KB as a journey path
 
 A `#kb` channel per workspace (or per team's choice); each top-level message is
-one KB entry, **capped at Slack's single-message text limit**. The line's id is
+one KB entry, **capped at Slack's single-message text limit**. The journey path's id is
 `(workspace, #kb-channel-id)`. The agent exposes:
 
 - `remember(title, body?, reference?, scope?)` — posts a new message to the
@@ -228,22 +228,22 @@ referenced document edits through its own system's history.
 
 ### 4.3 Future (not scoped here, named so the pattern can carry them)
 
-- **Email**: an IMAP folder as a line, with the IMAP IDLE event stream feeding
+- **Email**: an IMAP folder as a journey path, with the IMAP IDLE event stream feeding
   the mirror; `imap.append` as the sink.
-- **GitHub issues/PRs**: an issue or PR as a line, with the webhook event stream
+- **GitHub issues/PRs**: an issue or PR as a journey path, with the webhook event stream
   (via `intersyntactic_relay` or similar) feeding the mirror; `issue.comment`,
   `pulls.create_review_comment` as the sinks.
-- **Wiki page**: a page as a single-head line, mirror on edit webhooks, API
+- **Wiki page**: a page as a single-head journey path, mirror on edit webhooks, API
   write as the sink.
 
 Each of these would want its own shim (one per external source) but the
 receiver-side shape — mirror, event-to-node mapping, side-effects carrying
-`(line, epoch)` — is the same.
+`(journey_path, epoch)` — is the same.
 
 ## 5. The bus pressure, restated
 
 `plugins-as-services.md §2` lists options for inter-machine transport. The
-externally-anchored line pattern — specifically the shim-to-receiver call —
+externally-anchored journey path pattern — specifically the shim-to-receiver call —
 needs:
 
 - **Streaming** (so streamed model output can flow back from the receiver to
@@ -262,7 +262,7 @@ streaming test with cross-machine auth from day one.
 ## 6. The roster, as a first-class module-system concern
 
 `cross-machine-sessions.md` §4.5 names "roster" as "explicit, opt-in per
-machine, maintained by the relay." The externally-anchored line pattern makes
+machine, maintained by the relay." The externally-anchored journey path pattern makes
 roster-shaped routing general:
 
 ```
@@ -304,7 +304,7 @@ need no equivalent roster. §7.1 generalises this as a design axis.
          routing, so the recursion terminates: no stranger's-shim-audit
          question arises because no stranger is in the path. Default for
          users who have either affordance.
-       - *Third-party-anchored routing* — a shim (as §6); a meta-line
+       - *Third-party-anchored routing* — a shim (as §6); a meta-journey-path
          (recursive, since its routing has to live somewhere); a well-known
          per-workspace endpoint (which IS the routing table, just hosted
          elsewhere). These all push the routing-of-routing problem one level
@@ -402,6 +402,6 @@ need no equivalent roster. §7.1 generalises this as a design axis.
    calls.
 6. A zombie receiver that reconnects after an `adopt` and tries to post to
    Slack carries an epoch `n`; its Slack post is recognised as foreign by the
-   `(line, epoch)` mark in the message's metadata and does not update the
+   `(journey_path, epoch)` mark in the message's metadata and does not update the
    mirror on the live receiver. (This is the externally-anchored equivalent
    of `authority.md`'s "a stale CAS is refused.")

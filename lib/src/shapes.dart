@@ -123,7 +123,7 @@ final class SlackReaction implements SlackNode, Withdrawable {
 /// A tombstone marking a [SlackMessage] as deleted in Slack.
 ///
 /// Unannotated: every field is identity. The deletion itself is the node;
-/// the original message stays in the line (nothing is ever erased).
+/// the original message stays in the journey path (nothing is ever erased).
 final class SlackTombstone implements SlackNode {
   const SlackTombstone({
     required this.target,
