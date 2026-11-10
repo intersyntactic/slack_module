@@ -130,5 +130,29 @@ void main() {
       final out = await reply.post(path: _path, text: 'hi');
       expect(out.epoch, 1);
     });
+
+    test('outbound message is stamped with (path, epoch) metadata (§8.6)',
+        () async {
+      final mirror = InMemorySlackMirror();
+      final sender = _FakeSender()..respondPostOk('1.0');
+      final client = SlackClient(token: 'xoxb', sender: sender.send);
+      final reply = SlackReply(
+        mirror: mirror,
+        client: client,
+        selfActor: _self,
+        now: _fixedNow,
+      );
+
+      await reply.post(path: _path, text: 'hi');
+
+      final body = jsonDecode(utf8.decode(sender.seen.single.body)) as Map;
+      final metadata = body['metadata'] as Map;
+      expect(metadata['event_type'], intersyntacticSlackReplyEventType);
+      final payload = metadata['event_payload'] as Map;
+      expect(payload['workspace'], 'T01ABC');
+      expect(payload['channel'], 'C01');
+      expect(payload['thread_ts'], '1730000000.000100');
+      expect(payload['epoch'], 1);
+    });
   });
 }

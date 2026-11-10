@@ -52,6 +52,29 @@ class SlackHttpResponse {
   });
 }
 
+/// Slack's `metadata` on a posted message: an `event_type` string plus a
+/// free-form `event_payload` object. Slack echoes it back on reads of the
+/// same message (via `conversations.replies`), so this is the one place a
+/// poster can leave bytes on its own message that survive the round-trip
+/// without being part of the visible text.
+///
+/// Used by §8.6 to carry `(journey_path, epoch)` on outbound replies, so a
+/// live receiver can tell its own posts from a zombie's.
+class SlackMessageMetadata {
+  const SlackMessageMetadata({
+    required this.eventType,
+    required this.eventPayload,
+  });
+
+  final String eventType;
+  final Map<String, Object?> eventPayload;
+
+  Map<String, Object?> toJson() => {
+        'event_type': eventType,
+        'event_payload': eventPayload,
+      };
+}
+
 class SlackApiError implements Exception {
   final String method;
   final String error;
@@ -120,15 +143,23 @@ class SlackClient {
   /// Posts a new message, returning its `ts` so the caller can edit it later.
   /// Passing `threadTs` makes the message a reply in that thread; omit it to
   /// post to the top of the channel.
+  ///
+  /// [metadata] rides along as Slack's `metadata` field (`{event_type,
+  /// event_payload}`), visible on the posted message when read back via
+  /// `conversations.replies`. Used by the externally-anchored journey path
+  /// pattern (§8.6) to stamp `(journey_path, epoch)` on outbound messages so
+  /// a live receiver can tell its own posts from a zombie's.
   Future<String> chatPostMessage({
     required String channel,
     required String text,
     String? threadTs,
+    SlackMessageMetadata? metadata,
   }) async {
     final res = await _post('chat.postMessage', {
       'channel': channel,
       'text': text,
       'thread_ts': ?threadTs,
+      'metadata': ?metadata?.toJson(),
     });
     final ts = res['ts'];
     if (ts is! String) {

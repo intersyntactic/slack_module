@@ -20,6 +20,7 @@ library;
 import 'package:is_shapes/is_shapes.dart';
 
 import 'journey_path_id.dart';
+import 'outbound_metadata.dart';
 import 'shapes.dart';
 import 'slack_client.dart';
 import 'slack_mirror.dart';
@@ -97,6 +98,15 @@ final class SlackReply {
         channel: path.channel,
         text: text,
         threadTs: path.threadTs,
+        metadata: SlackMessageMetadata(
+          eventType: intersyntacticSlackReplyEventType,
+          eventPayload: {
+            'workspace': path.workspace,
+            'channel': path.channel,
+            'thread_ts': path.threadTs,
+            'epoch': epoch,
+          },
+        ),
       );
     } on SlackApiError catch (e) {
       error = e;
