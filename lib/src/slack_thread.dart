@@ -8,6 +8,10 @@
 /// the journey; individual paths within it are the host's opaque
 /// `JourneyPathId`s (formerly `RunId`s), tracked by the binding store.
 ///
+/// Named `SlackThread`, not `JourneyId`, because the protocol now has its own
+/// `JourneyId` (landed in intersyntactic PR 1126) — this type names a Slack
+/// thread, which happens to anchor a journey, not the journey itself.
+///
 /// The Teams side does not have a keyed equivalent yet — it uses a linear
 /// stand-in with no key at all (see teams_module's `stand_in_journey_path.dart`).
 /// Keeping this as a value type (not a String) so a channel id and a thread_ts
@@ -15,8 +19,8 @@
 /// `headFor(channel)` where a full journey is expected.
 library;
 
-final class JourneyId {
-  const JourneyId({
+final class SlackThread {
+  const SlackThread({
     required this.workspace,
     required this.channel,
     required this.threadTs,
@@ -37,7 +41,7 @@ final class JourneyId {
 
   @override
   bool operator ==(Object other) =>
-      other is JourneyId &&
+      other is SlackThread &&
       other.workspace == workspace &&
       other.channel == channel &&
       other.threadTs == threadTs;
@@ -46,5 +50,5 @@ final class JourneyId {
   int get hashCode => Object.hash(workspace, channel, threadTs);
 
   @override
-  String toString() => 'JourneyId($workspace/$channel/$threadTs)';
+  String toString() => 'SlackThread($workspace/$channel/$threadTs)';
 }

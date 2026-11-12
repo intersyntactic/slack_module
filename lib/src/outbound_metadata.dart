@@ -18,7 +18,7 @@
 /// parser can reuse them unchanged.
 library;
 
-import 'journey_id.dart';
+import 'slack_thread.dart';
 
 /// Slack `metadata.event_type` value stamped on every reply this module
 /// posts. Namespaced so multiple intersyntactic-origin event types can
@@ -47,7 +47,7 @@ IntersyntacticStamp? extractIntersyntacticStamp(
     return null;
   }
   return IntersyntacticStamp(
-    path: JourneyId(
+    path: SlackThread(
       workspace: workspace,
       channel: channel,
       threadTs: threadTs,
@@ -59,7 +59,7 @@ IntersyntacticStamp? extractIntersyntacticStamp(
 final class IntersyntacticStamp {
   const IntersyntacticStamp({required this.path, required this.epoch});
 
-  final JourneyId path;
+  final SlackThread path;
   final int epoch;
 
   /// True when this message was posted by a receiver at an epoch older than

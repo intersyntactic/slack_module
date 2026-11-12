@@ -282,7 +282,7 @@ void main() {
 
     test('slack_reaction_added with a locate-hit becomes a SlackReaction', () {
       final targetId = TurnId.of(Uint8List.fromList([7, 7, 7]));
-      final targetPath = JourneyId(
+      final targetPath = SlackThread(
         workspace: team,
         channel: channel,
         threadTs: '1700000000.000100',
@@ -306,7 +306,7 @@ void main() {
 
     test('slack_reaction_added with no locate falls back to SlackEventRaw', () {
       final (path, node) = parseDoorbellToSlackNode(reactionDoorbell());
-      // Best-effort JourneyId: target_ts is used as the thread anchor.
+      // Best-effort SlackThread: target_ts is used as the thread anchor.
       expect(path.threadTs, '1700000000.000100');
       expect(node, isA<SlackEventRaw>());
     });
@@ -334,7 +334,7 @@ void main() {
         'Withdraw', () {
       final messageId = TurnId.of(Uint8List.fromList([1, 2, 3]));
       final reactionId = TurnId.of(Uint8List.fromList([4, 5, 6]));
-      final path = JourneyId(
+      final path = SlackThread(
         workspace: team,
         channel: channel,
         threadTs: '1700000000.000100',
@@ -365,7 +365,7 @@ void main() {
 
     test('parseDoorbellToWithdraw returns null when findReaction misses', () {
       final messageId = TurnId.of(Uint8List.fromList([1, 2, 3]));
-      final path = JourneyId(
+      final path = SlackThread(
         workspace: team,
         channel: channel,
         threadTs: '1700000000.000100',

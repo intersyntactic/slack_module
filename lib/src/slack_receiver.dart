@@ -1,4 +1,4 @@
-/// The handler side of §4.1: takes a parsed [SlackNode] + its [JourneyId],
+/// The handler side of §4.1: takes a parsed [SlackNode] + its [SlackThread],
 /// writes it to the mirror, and emits a [KickoffRecord] carrying what a turn
 /// engine needs to decide whether to run.
 ///
@@ -32,7 +32,7 @@ library;
 
 import 'package:is_shapes/is_shapes.dart';
 
-import 'journey_id.dart';
+import 'slack_thread.dart';
 import 'shapes.dart';
 import 'slack_mirror.dart';
 
@@ -54,7 +54,7 @@ final class KickoffRecord {
   });
 
   final TurnId mirroredAs;
-  final JourneyId path;
+  final SlackThread path;
   final int epoch;
   final bool wantsTurn;
 }
@@ -75,7 +75,7 @@ final class WithdrawRecord {
 
   /// The `TurnId` of the `SlackReaction` that was taken back.
   final TurnId withdrew;
-  final JourneyId path;
+  final SlackThread path;
   final int epoch;
   final bool wantsTurn;
 }
@@ -90,7 +90,7 @@ final class SlackReceiver {
   /// receiver flags them `wantsTurn: false` to prevent self-reaction loops.
   final ActorId selfActor;
 
-  KickoffRecord receive(JourneyId path, SlackNode node) {
+  KickoffRecord receive(SlackThread path, SlackNode node) {
     final id = mirror.write(path, node);
     return KickoffRecord(
       mirroredAs: id,
@@ -109,7 +109,7 @@ final class SlackReceiver {
   /// consent after the agent prompted for one is the textbook case for
   /// wanting a turn (to retract the running edit-fork, per §4.1); a
   /// self-removal is the receiver's own reply pipeline cleaning up.
-  WithdrawRecord withdraw(JourneyId path, Withdraw<SlackReaction> w) {
+  WithdrawRecord withdraw(SlackThread path, Withdraw<SlackReaction> w) {
     mirror.writeWithdraw(w);
     return WithdrawRecord(
       withdrew: w.target,

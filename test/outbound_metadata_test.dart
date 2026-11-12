@@ -1,7 +1,7 @@
 import 'package:is_slack_module/is_slack_module.dart';
 import 'package:test/test.dart';
 
-final _path = JourneyId(
+final _path = SlackThread(
   workspace: 'T01ABC',
   channel: 'C01',
   threadTs: '1730000000.000100',
