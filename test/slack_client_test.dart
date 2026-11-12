@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:intersyntactic_slack/intersyntactic_slack.dart';
+import 'package:is_slack_module/is_slack_module.dart';
 import 'package:test/test.dart';
 
 /// A fake sender that records what it got and returns programmed responses.

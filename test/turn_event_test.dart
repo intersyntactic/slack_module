@@ -1,4 +1,4 @@
-import 'package:intersyntactic_slack/intersyntactic_slack.dart';
+import 'package:is_slack_module/is_slack_module.dart';
 import 'package:test/test.dart';
 
 /// A compile-time check that the family is sealed and exhaustive: adding a

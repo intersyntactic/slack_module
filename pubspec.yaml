@@ -1,4 +1,4 @@
-name: intersyntactic_slack
+name: is_slack_module
 description: >
   A Slack adapter for intersyntactic. Mentions and threads in Slack become
   turns of a journey on an intersyntactic agent, with any model the sender

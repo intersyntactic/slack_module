@@ -1,4 +1,4 @@
-import 'package:intersyntactic_slack/intersyntactic_slack.dart';
+import 'package:is_slack_module/is_slack_module.dart';
 import 'package:is_shapes/is_shapes.dart';
 import 'package:test/test.dart';
 

@@ -22,7 +22,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
 
-import 'package:intersyntactic_slack/intersyntactic_slack.dart';
+import 'package:is_slack_module/is_slack_module.dart';
 import 'package:is_shapes/is_shapes.dart';
 
 /// How long a signature digest stays in the replay cache. Slack's 5-minute
