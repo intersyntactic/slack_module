@@ -1,22 +1,22 @@
-/// The externally-anchored mirror: one head per [SlackThread], with every
-/// [SlackNode] write minting a [TurnId] from `sha256(parent-id-hex ++ 0x00 ++
-/// shape-tag ++ 0x00 ++ canonical-json(fields))`.
+/// The externally-anchored mirror: one record per [SlackNode] write, minting
+/// a [TurnId] from `sha256(shape-tag ++ 0x00 ++ canonical-json(fields))` and
+/// indexing it under its [SlackThread] and, where the shape carries one, its
+/// `(channel, ts)`.
 ///
-/// Why this shape, next to teams_module's `StandInJourneyPath`:
+/// Flat by design: every lookup here is a map read, not a walk. There is no
+/// stored parent-chain and no reconstructable thread history — nothing in
+/// this module needs either today. A node's own fields always carry Slack's
+/// own ts, which is unique per message, so dropping the chain costs nothing
+/// in id-uniqueness: two different events never hash to the same id because
+/// their own fields (including `ts`) differ.
 ///
-/// - **Keying.** Teams' stand-in has one linear path with no key. Slack lives
-///   in many threads at once, so the mirror must address a path. A value-typed
-///   [SlackThread] in, not a bare String.
-/// - **Same id formula as Teams' stand-in** (parent id + the node's own bytes),
-///   so when Teams grows past the stand-in, the id spaces line up and nothing
-///   has to renegotiate what a TurnId means.
 /// - **Epoch per path.** Starts at 1. An `adopt` op (per §8.6) will bump a
 ///   path's epoch and bind outbound Slack message metadata to it, so a zombie
 ///   receiver's post is recognised as foreign. Not implemented here; the
 ///   epoch read is in the interface so callers don't need a second lookup
 ///   when they wire `adopt` in.
 ///
-/// Nothing is ever erased: write-then-fail leaves the node in the chain, and
+/// Nothing is ever erased: write-then-fail leaves the node recorded, and
 /// deletion is a [SlackTombstone] node of its own. This matches the shape
 /// family's invariant and is the reason there is no `remove` method here.
 library;
@@ -30,27 +30,19 @@ import 'slack_thread.dart';
 import 'shapes.dart';
 
 abstract interface class SlackMirror {
-  /// Appends [node] to the chain at [path] and returns its minted [TurnId].
-  /// If [path] has no head yet, [node] becomes the head (its parent is the
-  /// empty digest-seed, so first-node ids are reproducible per-path from
-  /// path-independent inputs).
+  /// Records [node] under [path] and returns its minted [TurnId].
   TurnId write(SlackThread path, SlackNode node);
 
-  /// The current head of [path], or null if nothing has been written there.
-  TurnId? headFor(SlackThread path);
-
   /// The [TurnId] on [path] whose node's Slack `ts` equals [ts], or null if
-  /// no such node is in the chain. Used by `gate_parser.dart`'s
+  /// no such node is in the mirror. Used by `gate_parser.dart`'s
   /// [SlackMessageLookup] to anchor edits and tombstones to the message they
-  /// replace or remove. Walks the chain from the head; O(chain-length). For
-  /// threads of normal length that is a handful of nodes.
+  /// replace or remove. O(1): a flat `(channel, ts)` lookup, restricted to
+  /// [path]'s channel.
   ///
-  /// The walk visits every shape (`SlackMessage`, `SlackEdit`,
-  /// `SlackReaction`, `SlackTombstone`, `SlackEventRaw`) and matches the
-  /// first `ts` collision — in practice Slack's message `ts` is thread-unique
-  /// so the result is always the original message, but a caller that needs
-  /// to distinguish "find a message" from "find any node at this ts" should
-  /// filter the returned node via `nodeAt`.
+  /// Only matches shapes that carry a channel of their own (`SlackMessage`,
+  /// `SlackEdit`, `SlackEventRaw`) — see [locate]. In practice the target of
+  /// an edit or tombstone is always a message, so this is no narrower than
+  /// what callers need.
   TurnId? find(SlackThread path, String ts);
 
   /// Reverse index: the node at `(channel, ts)`, with the journey it's on.
@@ -62,22 +54,19 @@ abstract interface class SlackMirror {
   /// Used by the reaction path in `gate_parser.dart`: a reaction event
   /// carries `event.item.channel` and `event.item.ts` (the target message's
   /// ts), from which both the target's `TurnId` and the journey it sits on
-  /// are needed. Edits and tombstones could in principle use this too; they
-  /// currently continue to use [find] for continuity with the pre-reaction
-  /// code — the two indexes agree for Slack-issued ts values, which are
-  /// channel-unique.
+  /// are needed.
   ({TurnId id, SlackThread path})? locate(String channel, String ts);
 
   /// The journey a node is on, or null if the mirror has never seen it.
   SlackThread? pathOf(TurnId id);
 
-  /// The `TurnId` of a reaction node on the same path as [target] whose
-  /// fields `(target, emoji, by)` match the arguments; null if none exists.
-  /// Walks the chain from the head of `target`'s path. Used to resolve
-  /// `reaction_removed` to the exact `SlackReaction` it withdraws — Slack
-  /// identifies the reaction indirectly via `(message, emoji, user)`, and
-  /// `Withdraw<SlackReaction>` requires the exact `TurnId` of what it undoes
-  /// (per is_shapes' doctrine: a withdraw targets one node, not an anchor).
+  /// The `TurnId` of a reaction node whose fields `(target, emoji, by)` match
+  /// the arguments; null if none exists. O(1): a flat index keyed by that
+  /// triple, maintained on write. Used to resolve `reaction_removed` to the
+  /// exact `SlackReaction` it withdraws — Slack identifies the reaction
+  /// indirectly via `(message, emoji, user)`, and `Withdraw<SlackReaction>`
+  /// requires the exact `TurnId` of what it undoes (per is_shapes' doctrine:
+  /// a withdraw targets one node, not an anchor).
   TurnId? findReaction({
     required TurnId target,
     required String emoji,
@@ -85,10 +74,10 @@ abstract interface class SlackMirror {
   });
 
   /// Records a `Withdraw<SlackReaction>` in the mirror's side table — a
-  /// withdrawal does NOT append a new [SlackNode] to the chain (the sealed
-  /// family deliberately has no `SlackReactionWithdrawn` variant; the
-  /// withdrawal IS how reactions are taken back, per is_shapes' doctrine).
-  /// After this, [withdrawnBy] returns `withdraw` for its target.
+  /// withdrawal does NOT create a new [SlackNode] record (the sealed family
+  /// deliberately has no `SlackReactionWithdrawn` variant; the withdrawal IS
+  /// how reactions are taken back, per is_shapes' doctrine). After this,
+  /// [withdrawnBy] returns `withdraw` for its target.
   void writeWithdraw(Withdraw<SlackReaction> withdraw);
 
   /// The withdrawal targeting [target], or null if it has not been withdrawn.
@@ -99,10 +88,6 @@ abstract interface class SlackMirror {
   /// until an `adopt`-like op bumps it. See §8.6.
   int epochFor(SlackThread path);
 
-  /// Walks [head] back to the root, yielding each node in reverse-chronological
-  /// order (newest first). Throws [StateError] if [head] is not in the mirror.
-  Iterable<SlackNode> walk(TurnId head);
-
   /// The node at [id], or null if the mirror has never seen it.
   SlackNode? nodeAt(TurnId id);
 }
@@ -110,25 +95,25 @@ abstract interface class SlackMirror {
 final class InMemorySlackMirror implements SlackMirror {
   InMemorySlackMirror();
 
-  final Map<SlackThread, TurnId> _heads = {};
   final Map<SlackThread, int> _epochs = {};
   final Map<TurnId, _Entry> _nodes = {};
 
-  /// `(channel, ts) → TurnId` reverse index. Keys are built by `_indexKey`,
+  /// `(channel, ts) → TurnId` reverse index. Keys are built by `_channelTsKey`,
   /// which concatenates channel + 0x00 + ts so a channel-id ending in digits
   /// and a numeric ts can't collide across boundaries.
   final Map<String, TurnId> _byChannelTs = {};
 
+  /// `(target, emoji, by) → TurnId` reverse index for `SlackReaction` nodes.
+  final Map<String, TurnId> _byReaction = {};
+
   /// Side table for `Withdraw<SlackReaction>`. See [writeWithdraw] — the
-  /// doctrine keeps withdrawals off the main node chain.
+  /// doctrine keeps withdrawals out of the node record.
   final Map<TurnId, Withdraw<SlackReaction>> _withdrawals = {};
 
   @override
   TurnId write(SlackThread path, SlackNode node) {
-    final parent = _heads[path];
-    final id = _mintId(parent, node);
-    _nodes[id] = _Entry(parent: parent, node: node, path: path);
-    _heads[path] = id;
+    final id = _mintId(node);
+    _nodes[id] = _Entry(node: node, path: path);
     _epochs.putIfAbsent(path, () => 1);
     final indexable = _channelTsKey(node);
     if (indexable != null) {
@@ -138,41 +123,25 @@ final class InMemorySlackMirror implements SlackMirror {
       // events at the same (channel, ts) into the mirror.
       _byChannelTs.putIfAbsent(indexable, () => id);
     }
+    if (node is SlackReaction) {
+      _byReaction.putIfAbsent(_reactionKey(node.target, node.emoji, node.by), () => id);
+    }
     return id;
   }
 
   @override
-  TurnId? headFor(SlackThread path) => _heads[path];
-
-  @override
   int epochFor(SlackThread path) => _epochs[path] ?? 1;
-
-  @override
-  Iterable<SlackNode> walk(TurnId head) sync* {
-    var cursor = _nodes[head];
-    if (cursor == null) {
-      throw StateError('walk: $head not in mirror');
-    }
-    while (cursor != null) {
-      yield cursor.node;
-      final p = cursor.parent;
-      cursor = p == null ? null : _nodes[p];
-    }
-  }
 
   @override
   SlackNode? nodeAt(TurnId id) => _nodes[id]?.node;
 
   @override
   TurnId? find(SlackThread path, String ts) {
-    var cursor = _heads[path];
-    while (cursor != null) {
-      final entry = _nodes[cursor];
-      if (entry == null) return null;
-      if (_tsOf(entry.node) == ts) return cursor;
-      cursor = entry.parent;
-    }
-    return null;
+    final id = _byChannelTs['${path.channel}\u0000$ts'];
+    if (id == null) return null;
+    final entry = _nodes[id];
+    if (entry == null || entry.path != path) return null;
+    return id;
   }
 
   @override
@@ -192,24 +161,8 @@ final class InMemorySlackMirror implements SlackMirror {
     required TurnId target,
     required String emoji,
     required ActorId by,
-  }) {
-    final path = _nodes[target]?.path;
-    if (path == null) return null;
-    var cursor = _heads[path];
-    while (cursor != null) {
-      final entry = _nodes[cursor];
-      if (entry == null) return null;
-      final node = entry.node;
-      if (node is SlackReaction &&
-          node.target == target &&
-          node.emoji == emoji &&
-          node.by == by) {
-        return cursor;
-      }
-      cursor = entry.parent;
-    }
-    return null;
-  }
+  }) =>
+      _byReaction[_reactionKey(target, emoji, by)];
 
   @override
   void writeWithdraw(Withdraw<SlackReaction> withdraw) {
@@ -234,26 +187,18 @@ String? _channelTsKey(SlackNode node) => switch (node) {
       SlackTombstone() => null,
     };
 
-String? _tsOf(SlackNode node) => switch (node) {
-      SlackMessage(:final ts) => ts,
-      SlackEdit(:final editTs) => editTs,
-      SlackReaction(:final ts) => ts,
-      SlackTombstone(:final ts) => ts,
-      SlackEventRaw(:final ts) => ts,
-    };
+String _reactionKey(TurnId target, String emoji, ActorId by) =>
+    '$target\u0000$emoji\u0000$by';
 
 class _Entry {
-  const _Entry({required this.parent, required this.node, required this.path});
-  final TurnId? parent;
+  const _Entry({required this.node, required this.path});
   final SlackNode node;
   final SlackThread path;
 }
 
-TurnId _mintId(TurnId? parent, SlackNode node) {
+TurnId _mintId(SlackNode node) {
   final (tag, fields) = _encode(node);
   final seed = <int>[
-    ...utf8.encode(parent?.toString() ?? ''),
-    0,
     ...utf8.encode(tag),
     0,
     ...utf8.encode(_canonicalJson(fields)),

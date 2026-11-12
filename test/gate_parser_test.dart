@@ -406,7 +406,7 @@ void main() {
 
       expect(record.wantsTurn, isTrue);
       expect(record.epoch, 1);
-      expect(mirror.headFor(path), record.mirroredAs);
+      expect(mirror.nodeAt(record.mirroredAs), isNotNull);
     });
   });
 }

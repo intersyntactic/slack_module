@@ -126,9 +126,7 @@ void main() {
       expect(record.epoch, 1);
       // Placeholder selfActor, so a real U1 is "someone else" → turn-worthy.
       expect(record.wantsTurn, isTrue);
-      final head = mirror.headFor(record.path);
-      expect(head, record.mirroredAs);
-      final node = mirror.nodeAt(head!);
+      final node = mirror.nodeAt(record.mirroredAs);
       expect(node, isA<SlackMessage>());
       expect((node! as SlackMessage).text, 'hi bot');
     });

@@ -16,7 +16,7 @@
 /// stand-in with no key at all (see teams_module's `stand_in_journey_path.dart`).
 /// Keeping this as a value type (not a String) so a channel id and a thread_ts
 /// can't be mistakenly swapped, and so the Dart analyzer refuses
-/// `headFor(channel)` where a full journey is expected.
+/// `find(channel, ts)` where a full journey is expected.
 library;
 
 final class SlackThread {

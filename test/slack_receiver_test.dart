@@ -31,7 +31,7 @@ void main() {
       expect(out.wantsTurn, isTrue);
       expect(out.path, equals(_path));
       expect(out.epoch, 1);
-      expect(mirror.headFor(_path), equals(out.mirroredAs));
+      expect(mirror.nodeAt(out.mirroredAs), isNotNull);
     });
 
     test('self-authored message does not ask for a turn (no loop)', () {
@@ -40,7 +40,7 @@ void main() {
         SlackMessage(channel: 'C01', ts: '1', by: _self, text: 'reply'),
       );
       expect(out.wantsTurn, isFalse);
-      expect(mirror.headFor(_path), equals(out.mirroredAs));
+      expect(mirror.nodeAt(out.mirroredAs), isNotNull);
     });
 
     test('inbound reaction (per #1094 broad-turn) asks for a turn', () {
@@ -153,7 +153,7 @@ void main() {
       expect(out.wantsTurn, isFalse);
     });
 
-    test('kickoff record chains in mirror order', () {
+    test('two kickoffs on the same path mint independent records', () {
       final a = receiver.receive(
         _path,
         SlackMessage(channel: 'C01', ts: '1', by: _human, text: 'first'),
@@ -162,8 +162,9 @@ void main() {
         _path,
         SlackMessage(channel: 'C01', ts: '2', by: _human, text: 'second'),
       );
-      expect(mirror.walk(b.mirroredAs).toList(), hasLength(2));
       expect(a.mirroredAs, isNot(equals(b.mirroredAs)));
+      expect(mirror.nodeAt(a.mirroredAs), isNotNull);
+      expect(mirror.nodeAt(b.mirroredAs), isNotNull);
     });
   });
 }

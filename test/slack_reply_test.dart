@@ -62,12 +62,11 @@ void main() {
         now: _fixedNow,
       );
 
-      expect(mirror.headFor(_path), isNull);
       final out = await reply.post(path: _path, text: 'hi');
 
       expect(out.posted, isTrue);
       expect(out.postedTs, '1762790400.000000');
-      expect(mirror.headFor(_path), equals(out.mirroredAs));
+      expect(mirror.nodeAt(out.mirroredAs), isNotNull);
       final node = mirror.nodeAt(out.mirroredAs);
       expect(node, isA<SlackMessage>());
       expect((node as SlackMessage).by, equals(_self));
@@ -90,7 +89,7 @@ void main() {
       expect(out.posted, isFalse);
       expect(out.postedTs, isNull);
       expect(out.error?.error, 'channel_not_found');
-      expect(mirror.headFor(_path), equals(out.mirroredAs),
+      expect(mirror.nodeAt(out.mirroredAs), isNotNull,
           reason:
               'Write-ahead: the mirror records intent; a failed post is '
               'an annotation on the chain, not an erasure.');

@@ -25,48 +25,40 @@ SlackMessage _msg({
 
 void main() {
   group('InMemorySlackMirror', () {
-    test('headFor is null before any write', () {
+    test('nothing recorded before any write', () {
       final m = InMemorySlackMirror();
-      expect(m.headFor(_path()), isNull);
+      expect(m.locate(_path().channel, '1730000000.000100'), isNull);
       expect(m.epochFor(_path()), 1);
     });
 
-    test('write returns a TurnId and sets the head', () {
+    test('write returns a TurnId and records it under the path', () {
       final m = InMemorySlackMirror();
       final id = m.write(_path(), _msg(ts: '1730000000.000100'));
-      expect(m.headFor(_path()), equals(id));
+      expect(m.pathOf(id), equals(_path()));
+      expect(m.nodeAt(id), isNotNull);
     });
 
-    test('two writes to the same path chain parent → child', () {
+    test('two writes to the same path mint distinct ids', () {
       final m = InMemorySlackMirror();
       final a = m.write(_path(), _msg(ts: '1730000000.000100'));
       final b = m.write(_path(), _msg(ts: '1730000000.000200', text: 'again'));
       expect(a, isNot(equals(b)));
-      expect(m.headFor(_path()), equals(b));
-      expect(m.walk(b).toList(), hasLength(2));
+      expect(m.pathOf(a), equals(_path()));
+      expect(m.pathOf(b), equals(_path()));
     });
 
-    test('walk yields newest-first', () {
-      final m = InMemorySlackMirror();
-      m.write(_path(), _msg(ts: '1', text: 'first'));
-      final second = m.write(_path(), _msg(ts: '2', text: 'second'));
-      final nodes = m.walk(second).toList();
-      expect((nodes[0] as SlackMessage).text, 'second');
-      expect((nodes[1] as SlackMessage).text, 'first');
-    });
-
-    test('two paths have independent heads', () {
+    test('two paths are independently tracked', () {
       final m = InMemorySlackMirror();
       final p1 = _path(channel: 'C01');
       final p2 = _path(channel: 'C02');
       final a = m.write(p1, _msg(ts: '1', channel: 'C01'));
       final b = m.write(p2, _msg(ts: '1', channel: 'C02'));
-      expect(m.headFor(p1), equals(a));
-      expect(m.headFor(p2), equals(b));
+      expect(m.pathOf(a), equals(p1));
+      expect(m.pathOf(b), equals(p2));
       expect(a, isNot(equals(b)));
     });
 
-    test('id is reproducible given the same parent and node', () {
+    test('id is reproducible given the same node', () {
       final m1 = InMemorySlackMirror();
       final m2 = InMemorySlackMirror();
       final node = _msg(ts: '1730000000.000100');
@@ -75,12 +67,11 @@ void main() {
       expect(id1, equals(id2));
     });
 
-    test('id changes with parent (same node bytes, different chain)', () {
+    test('id changes with the node\'s own fields, not its path', () {
       final m = InMemorySlackMirror();
       final rootA = m.write(_path(), _msg(ts: 'root-a'));
-      m.write(_path(), _msg(ts: 'root-a-child'));
       final rootB = m.write(_path(channel: 'C02'), _msg(ts: 'root-a', channel: 'C02'));
-      // Same node bytes as rootA (ts collision), but different chain → different id.
+      // Same ts, but a different channel field → different content → different id.
       expect(rootA, isNot(equals(rootB)));
     });
 
@@ -91,10 +82,10 @@ void main() {
       expect(m.nodeAt(id), same(node));
     });
 
-    test('walk from an unknown id throws', () {
+    test('nodeAt on an unknown id returns null', () {
       final m = InMemorySlackMirror();
       final fakeId = TurnId.parse('0' * 64)!;
-      expect(() => m.walk(fakeId).toList(), throwsStateError);
+      expect(m.nodeAt(fakeId), isNull);
     });
 
     test('locate finds a message by (channel, ts)', () {
@@ -220,7 +211,10 @@ void main() {
         ),
       );
       expect({msgId, editId, reactId, tombId, rawId}.length, 5);
-      expect(m.walk(m.headFor(_path())!).toList(), hasLength(5));
+      for (final id in [msgId, editId, reactId, tombId, rawId]) {
+        expect(m.nodeAt(id), isNotNull);
+        expect(m.pathOf(id), equals(_path()));
+      }
     });
   });
 }
