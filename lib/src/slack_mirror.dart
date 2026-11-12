@@ -124,7 +124,12 @@ final class InMemorySlackMirror implements SlackMirror {
       _byChannelTs.putIfAbsent(indexable, () => id);
     }
     if (node is SlackReaction) {
-      _byReaction.putIfAbsent(_reactionKey(node.target, node.emoji, node.by), () => id);
+      // Last-write-wins: unlike (channel, ts), the (target, emoji, by) triple
+      // is not expected to be unique — a remove-then-re-add cycle writes two
+      // SlackReaction nodes under the same triple, and findReaction must
+      // resolve to the newest one (matching the old chain-walk's head-first
+      // traversal, which found the most recent match).
+      _byReaction[_reactionKey(node.target, node.emoji, node.by)] = id;
     }
     return id;
   }
