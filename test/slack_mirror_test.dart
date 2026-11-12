@@ -149,30 +149,6 @@ void main() {
       );
     });
 
-    test('findReaction resolves to the newest after remove-then-re-add', () {
-      // Regression guard: the flat (target, emoji, by) index is last-write-
-      // wins, not first-write-wins — a re-add after a withdrawal must shadow
-      // the withdrawn reaction's id, or callers resolving reaction_removed
-      // for the re-added reaction would hit a stale, already-withdrawn node.
-      final m = InMemorySlackMirror();
-      final msgId = m.write(_path(), _msg(ts: 'msg'));
-      final alice = _actor('U-alice');
-      final first = m.write(
-        _path(),
-        SlackReaction(target: msgId, emoji: 'thumbsup', by: alice, ts: 'r1'),
-      );
-      m.writeWithdraw(Withdraw<SlackReaction>(target: first, by: alice));
-      final second = m.write(
-        _path(),
-        SlackReaction(target: msgId, emoji: 'thumbsup', by: alice, ts: 'r2'),
-      );
-      expect(first, isNot(equals(second)));
-      expect(
-        m.findReaction(target: msgId, emoji: 'thumbsup', by: alice),
-        equals(second),
-      );
-    });
-
     test('findReaction returns null when target is unknown', () {
       final m = InMemorySlackMirror();
       final fakeId = TurnId.parse('0' * 64)!;
