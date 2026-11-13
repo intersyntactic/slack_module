@@ -6,7 +6,7 @@ Threads are the conversation; the airlock, given this journey path's rules, deci
 each effect the agent asks for, and a driver operates Slack.
 
 A module, by intersyntactic's own shape: modules live in their own repos.
-This package depends on `enspyrco/intersyntactic`, not the other way around.
+This package depends on intersyntactic's core, not the other way around.
 
 ## Shape
 
@@ -44,7 +44,7 @@ dart test
 
 ## Design anchors
 
-- [`composition.md`](https://github.com/enspyrco/intersyntactic/blob/main/docs/design/composition.md)
+- `composition.md`, intersyntactic's own design doc
   — the state of truth for how modules compose. Acceptors are places a module
   opens; offerings are what a module brings; the core binds each offering at
   the acceptors it names. Our manifest at [`.intersyntactic/manifest.json`](./.intersyntactic/manifest.json)
@@ -54,7 +54,7 @@ dart test
   Slack-anchored journey path has no git worktree; its writable state lives at
   `~/.intersyntactic/journey_paths/<journey_path_id>/`. The orchestrator (composition.md §7)
   resolves a webhook delivery to its journey path before anything becomes a node.
-- `enspyrco/intersyntactic/docs/design/distributed.md` — the always-on target:
+- `distributed.md`, intersyntactic's always-on design doc — the always-on target:
   a run is a tree of turns (grow-only), a head (one writer, epoch-fenced), and
   a working tree. For Slack journey paths, "working tree" is the home-pinned data
   directory above, not a git checkout.

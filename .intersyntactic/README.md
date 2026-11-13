@@ -4,7 +4,7 @@ Module manifest for `intersyntactic_slack`. Discoverable by intersyntactic at
 composition time; versioned with the code (not with the user's home-pinned
 runtime state, which lives in `~/.intersyntactic/journey_paths/<journey_path_id>/`).
 
-The format follows [`composition.md`](https://github.com/enspyrco/intersyntactic/blob/main/docs/design/composition.md)
+The format follows `composition.md`, intersyntactic's own design doc
 (PROPOSED 2026-11-04, ratified as the state of truth by Nick 2026-11-05):
 **acceptors** are places this module opens for others; **offerings** are what
 this module brings to theirs. The core binds each offering at the acceptors it

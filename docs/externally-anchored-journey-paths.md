@@ -1,20 +1,20 @@
 # Externally-anchored journey paths
 
-**Status:** draft, 2026-10-23, aligned 2026-11-05 to [`composition.md`](https://github.com/enspyrco/intersyntactic/blob/main/docs/design/composition.md)
-(PROPOSED 2026-11-04, ratified by Nick as the state of truth 2026-11-05). For a PR
-against `enspyrco/intersyntactic/docs/design/` after review and `/design-temper`.
-Written from a design conversation with Nick on 2026-10-23, extended by the
-2026-11-03/04 cross-session conversations that produced composition.md.
-**Draft lives in `enspyrco/intersyntactic-slack` while it stabilises; promote
-once settled.**
-**Builds on:** [`composition.md`](https://github.com/enspyrco/intersyntactic/blob/main/docs/design/composition.md)
-(acceptors, offerings, bindings, deliveries), [`distributed.md`](../../intersyntactic/docs/design/distributed.md) §1
-(a run is a tree of turns, a head, a working tree) and
-[`authority.md`](../../intersyntactic/docs/design/authority.md) §3 (invariants N, H,
-L, T, E). This note names a kind of journey path beyond "worktree-pinned" and the
-service-local case `authority.md` already allows.
-**Forcing function:** `enspyrco/intersyntactic-slack`, the first inbound-event
-adapter. The Slack case is the concrete instance below; the type generalises.
+**Status:** draft, 2026-10-23, aligned 2026-11-05 to `composition.md`, intersyntactic's
+own design doc (PROPOSED 2026-11-04, ratified by Nick as the state of truth
+2026-11-05). For a PR against intersyntactic's own design docs after review
+and `/design-temper`. Written from a design conversation with Nick on
+2026-10-23, extended by the 2026-11-03/04 cross-session conversations that
+produced composition.md.
+**Draft lived in this module's own private predecessor repo while it
+stabilised; promoted once settled.**
+**Builds on** intersyntactic's own design docs: `composition.md`
+(acceptors, offerings, bindings, deliveries), `distributed.md` §1
+(a run is a tree of turns, a head, a working tree) and `authority.md` §3
+(invariants N, H, L, T, E). This note names a kind of journey path beyond
+"worktree-pinned" and the service-local case `authority.md` already allows.
+**Forcing function:** this module's own earlier private name, the first
+inbound-event adapter. The Slack case is the concrete instance below; the type generalises.
 
 ## Rulings (Nick, 2026-10-23)
 
