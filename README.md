@@ -11,10 +11,10 @@ This package depends on intersyntactic's core, not the other way around.
 ## Shape
 
 ```
-Slack  ──POST /webhook/slack──▶  intersyntactic_relay
-                                     │  (verifies signing, projects to a
-                                     │   doorbell: team, channel, thread_ts,
-                                     │   user — no Slack text)
+Slack  ──POST /webhook/slack──▶  SlackRelay (is_slack_relay)
+                                     │  (verifies signing, dedupes replays,
+                                     │   projects to a doorbell: team,
+                                     │   channel, thread_ts, user, text)
                                      ▼
                                  /ws  ──doorbell──▶  intersyntactic agent
                                                         │  (re-reads thread
@@ -30,10 +30,14 @@ one-way.
 
 ## Status
 
-Draft. The signing/parsing gate is here (`lib/src/slack_gate.dart`) with tests;
-the HTTP handler, the Slack Web API client, the local turn-store and the
-receiver side are not written yet. Credentials live at the airlock under the
-drivers ruling, not in this module.
+Draft. The relay (signature verification, replay dedupe, the HTTP handler)
+lives in its own package, `is_slack_relay`, for separation of concerns from
+this module's domain logic: the Slack Web API client (`lib/src/slack_client.dart`),
+the thread mirror (`lib/src/slack_mirror.dart`) and the receiver
+(`lib/src/slack_receiver.dart`) that turns a doorbell into mirror writes.
+Still missing: wiring the turn engine to the agent host (task #11, on hold
+pending intersyntactic's shapes direction). Credentials live at the airlock
+under the drivers ruling, not in this module.
 
 ## Running the tests
 
