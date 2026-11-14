@@ -12,8 +12,8 @@ environment:
   sdk: ^3.13.0
 
 dependencies:
-  crypto: ^3.0.3
   is_shapes: ^0.3.0
+  is_slack_relay: ^0.1.0
 
 dev_dependencies:
   lints: ^6.1.0
