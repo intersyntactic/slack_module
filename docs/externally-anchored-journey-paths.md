@@ -74,14 +74,14 @@ and where it lands, is declared in the module's manifest per composition.md:
 ## 2. The pattern, in three pieces
 
 ```
-  external source  ──events──▶  shim (one per source)   ──doorbells──▶   receiver
-   (Slack, IMAP,                 verifies, projects to                  (one per
-    GitHub, …)                   minimal payload, routes                 owner)
-                                 to the right receiver                   mirrors,
-                                                                         writes
-                                 no code execution,                      nodes,
-                                 no credentials,                         runs
-                                 no filesystem touch                     turns
+  external source  ──events──▶  shim (one per source)   ──typed event──▶   receiver
+   (Slack, IMAP,                 verifies, projects to                    (one per
+    GitHub, …)                   a typed event, routes                     owner)
+                                 to the right receiver                     mirrors,
+                                                                           writes
+                                 no code execution,                        nodes,
+                                 no credentials,                           runs
+                                 no filesystem touch                       turns
 
   receiver  ──side-effects──▶  external source
    (via tool calls that                      (sink shape: `slack.chat_post`,
@@ -90,12 +90,17 @@ and where it lands, is declared in the module's manifest per composition.md:
 ```
 
 The **shim** is small and auditable. Its job is: verify the external source's
-signature, project each event to a minimal doorbell (external IDs only, no
-content — see N below), look up the owner for that journey path, forward. Nothing else.
+signature, project each event to a typed event (a sealed class per source,
+named for the source's own vocabulary — not a generic payload), look up the
+owner for that journey path, forward. Nothing else. A source with nothing
+useful to say beyond "something changed" (GitHub's webhook) still gets a
+minimal notice naming only external IDs; a source that carries content
+inline (Slack, Teams) carries it in the event rather than making the
+receiver fetch it back — see N below.
 
 The **receiver** is an ordinary journey path owner, with one additional responsibility:
 it maintains a mirror of the external store for its owned journey paths, updated by the
-doorbells it receives. The mirror is the journey path's local node store.
+events it receives. The mirror is the journey path's local node store.
 
 ### Edits, deletes, reactions as nodes
 
@@ -382,7 +387,7 @@ need no equivalent roster. §7.1 generalises this as a design axis.
 
 ## 8. Done when
 
-1. A Slack thread @-mention arrives, the shim forwards a doorbell, the correct
+1. A Slack thread @-mention arrives, the shim forwards a typed event, the correct
    user's receiver writes a mirror node, runs a turn against their own
    provider, posts a reply via `chat.postMessage`, and the reply appears in the
    mirror as a sibling node authored by the agent — all without the receiver

@@ -8,7 +8,12 @@
 /// `lib/src/` and re-exported here as they land.
 library;
 
-export 'package:is_slack_relay/is_slack_relay.dart';
+// SlackMessage is hidden: is_slack_relay's wire event and this package's own
+// domain node shape (src/shapes.dart) share the name by coincidence — a
+// module-side mirror-node and a wire-side event are different concerns that
+// happen to use the same word for what Slack calls a message. Code that
+// needs the relay's SlackMessage imports is_slack_relay directly.
+export 'package:is_slack_relay/is_slack_relay.dart' hide SlackMessage;
 
 export 'src/gate_parser.dart';
 export 'src/slack_thread.dart';

@@ -1,47 +1,51 @@
-/// Turns a `slackGate` doorbell payload into a `(SlackThread, SlackNode)`
-/// pair the receiver can feed straight into its mirror.
+/// Turns a `SlackRelay`-delivered [relay.SlackEvent] into a
+/// `(SlackThread, SlackNode)` pair the receiver can feed straight into its
+/// mirror.
 ///
-/// This is the "doorbell-carries-text" side of §8.1's open decision: the gate
-/// already forwards `event.text` and friends, so the parser does not call
-/// `conversations.history` (per §8 Done-when rule 1: "all without the receiver
-/// calling `conversations.replies` after the first-ever message of the
-/// thread").
+/// This is the "the event carries text" side of §8.1's open decision: the
+/// relay already forwards `event.text` and friends, so the parser does not
+/// call `conversations.history` (per §8 Done-when rule 1: "all without the
+/// receiver calling `conversations.replies` after the first-ever message of
+/// the thread").
 ///
 /// What this parser covers today:
 ///
-///   - `slack_message`, `slack_mention` with no subtype → `SlackMessage`.
-///   - `slack_message` with `subtype == "message_changed"`  → `SlackEdit`, iff
-///     [lookup] resolves the replaced message's `TurnId`. Without a resolver
-///     (or on a miss) the event falls back to `SlackEventRaw` so the mirror
-///     stays faithful and a later turn can promote the shape.
-///   - `slack_message` with `subtype == "message_deleted"` → `SlackTombstone`,
-///     same lookup rule as edits.
-///   - Any other subtype, or any `event` discriminator the parser doesn't
-///     recognise → `SlackEventRaw` carrying the full inner event as JSON.
+///   - a [relay.SlackMessage] with no `subtype` → `SlackMessage` (the domain
+///     shape; `event.mention` distinguishes app_mention from a plain message
+///     at the relay layer, but both produce the same node here).
+///   - a [relay.SlackMessage] with `subtype == "message_changed"` →
+///     `SlackEdit`, iff [lookup] resolves the replaced message's `TurnId`.
+///     Without a resolver (or on a miss) the event falls back to
+///     `SlackEventRaw` so the mirror stays faithful and a later turn can
+///     promote the shape.
+///   - a [relay.SlackMessage] with `subtype == "message_deleted"` →
+///     `SlackTombstone`, same lookup rule as edits.
+///   - Any other subtype → `SlackEventRaw` carrying the full inner event as
+///     JSON.
 ///
-/// What this parser DOES NOT cover yet:
-///
-///   - Slash commands. They don't flow into the mirror — they are consumed by
-///     the model-selection surface — so the parser deliberately rejects
-///     `slack_command` doorbells with an [ArgumentError] rather than silently
-///     fabricating a SlackEventRaw.
+/// Slash commands ([relay.SlackCommand]) never reach this parser — they
+/// don't flow into the mirror, they are consumed by the model-selection
+/// surface — so there is no `parseCommandToSlackNode`; the caller routes
+/// them to `onCommand` directly.
 ///
 /// Reactions:
 ///
-///   - `slack_reaction_added` is handled by this parser, emitting a
-///     `SlackReaction`. It needs a [SlackChannelTsLocate] to resolve the
-///     target message's `TurnId` and `SlackThread` in one query. On a miss
-///     (the mirror has never seen the target) the parser falls back to
-///     `SlackEventRaw` keyed as if the target's ts were the thread anchor —
-///     correct for reactions-on-top-level messages, best-effort otherwise.
-///   - `slack_reaction_removed` is handled by [parseDoorbellToWithdraw]
+///   - [relay.SlackReactionAdded] is handled by [parseReactionAddedToSlackNode],
+///     emitting a `SlackReaction`. It needs a [SlackChannelTsLocate] to
+///     resolve the target message's `TurnId` and `SlackThread` in one query.
+///     On a miss (the mirror has never seen the target) the parser falls
+///     back to `SlackEventRaw` keyed as if the target's ts were the thread
+///     anchor — correct for reactions-on-top-level messages, best-effort
+///     otherwise.
+///   - [relay.SlackReactionRemoved] is handled by [parseReactionRemovedToWithdraw]
 ///     instead, which produces a `Withdraw<SlackReaction>`. A withdrawal is
-///     not a `SlackNode`, so it cannot live in this function's return type.
+///     not a `SlackNode`, so it cannot live in that function's return type.
 library;
 
 import 'dart:convert';
 
 import 'package:is_shapes/is_shapes.dart';
+import 'package:is_slack_relay/is_slack_relay.dart' as relay;
 
 import 'slack_thread.dart';
 import 'shapes.dart';
@@ -55,8 +59,8 @@ typedef SlackMessageLookup = TurnId? Function(SlackThread path, String ts);
 
 /// Resolves `(channel, ts)` to the mirrored node's id and the journey it
 /// sits on, in one query. Used by the reaction path — a reaction event
-/// carries `event.item.channel` and `event.item.ts` but no thread_ts, so
-/// the journey can only be learned from a mirror index.
+/// carries `event.targetTs` but no `threadTs`, so the journey can only be
+/// learned from a mirror index.
 typedef SlackChannelTsLocate =
     ({TurnId id, SlackThread path})? Function(String channel, String ts);
 
@@ -71,50 +75,28 @@ typedef SlackReactionFinder = TurnId? Function({
   required ActorId by,
 });
 
-(SlackThread, SlackNode) parseDoorbellToSlackNode(
-  Map<String, dynamic> doorbell, {
+(SlackThread, SlackNode) parseMessageToSlackNode(
+  relay.SlackMessage event, {
   SlackMessageLookup? lookup,
-  SlackChannelTsLocate? locate,
 }) {
-  final event = doorbell['event'];
-  if (event == 'slack_reaction_added') {
-    return _reactionAdded(doorbell, locate);
-  }
-  if (event == 'slack_reaction_removed') {
-    throw ArgumentError.value(
-      event,
-      'doorbell[event]',
-      'use parseDoorbellToWithdraw for slack_reaction_removed; '
-          'Withdraw<SlackReaction> is not a SlackNode',
-    );
-  }
-  if (event != 'slack_mention' && event != 'slack_message') {
-    throw ArgumentError.value(
-      event,
-      'doorbell[event]',
-      'parser handles slack_mention, slack_message and '
-          'slack_reaction_added; slack_command is consumed elsewhere',
-    );
-  }
-
-  final workspace = doorbell['team'] as String;
-  final channel = doorbell['channel'] as String;
-  final anchor = doorbell['thread_ts'] as String;
+  final workspace = event.workspace;
+  final channel = event.channel;
+  final anchor = event.threadTs;
   final path = SlackThread(
     workspace: workspace,
     channel: channel,
     threadTs: anchor,
   );
 
-  final subtype = doorbell['subtype'] as String?;
-  final raw = doorbell['raw_event'] as Map<String, dynamic>? ?? const {};
+  final subtype = event.subtype;
+  final raw = event.rawEvent;
 
   if (subtype == null) {
-    // Plain message or app_mention. Fields come straight from the doorbell.
-    final userId = doorbell['user'] as String?;
-    final text = doorbell['text'] as String?;
-    final eventTs = doorbell['event_ts'] as String?;
-    final rawThreadTs = doorbell['raw_thread_ts'] as String?;
+    // Plain message or app_mention. Fields come straight from the event.
+    final userId = event.user;
+    final text = event.text;
+    final eventTs = event.eventTs;
+    final rawThreadTs = event.rawThreadTs;
     if (userId == null || text == null || eventTs == null) {
       return (path, _raw(raw, channel, anchor, workspace, userId: userId));
     }
@@ -170,12 +152,12 @@ typedef SlackReactionFinder = TurnId? Function({
   if (subtype == 'message_deleted') {
     // Slack puts the deletor at the top level (`event.user`) when available;
     // the gone message's ts is at `event.deleted_ts` or `event.previous_message.ts`.
-    final deletorId = doorbell['user'] as String?;
+    final deletorId = event.user;
     final deletedTs = raw['deleted_ts'] as String? ??
         ((raw['previous_message'] is Map
             ? raw['previous_message']['ts']
             : null) as String?);
-    final eventTs = doorbell['event_ts'] as String?;
+    final eventTs = event.eventTs;
     if (deletorId == null || deletedTs == null || eventTs == null) {
       return (path, _raw(raw, channel, anchor, workspace, userId: deletorId));
     }
@@ -200,21 +182,21 @@ typedef SlackReactionFinder = TurnId? Function({
   return (path, _raw(raw, channel, anchor, workspace));
 }
 
-/// Resolves `slack_reaction_added` into a `(SlackThread, SlackReaction)`.
+/// Resolves a [relay.SlackReactionAdded] into a `(SlackThread, SlackReaction)`.
 /// On a locate-miss (mirror has never seen the target) falls back to
 /// `SlackEventRaw` keyed as if the target's ts were the thread anchor —
 /// correct for reactions on top-level messages, best-effort otherwise.
-(SlackThread, SlackNode) _reactionAdded(
-  Map<String, dynamic> doorbell,
+(SlackThread, SlackNode) parseReactionAddedToSlackNode(
+  relay.SlackReactionAdded event, {
   SlackChannelTsLocate? locate,
-) {
-  final workspace = doorbell['team'] as String;
-  final channel = doorbell['channel'] as String;
-  final userId = doorbell['user'] as String;
-  final emoji = doorbell['reaction'] as String;
-  final targetTs = doorbell['target_ts'] as String;
-  final eventTs = doorbell['event_ts'] as String;
-  final raw = doorbell['raw_event'] as Map<String, dynamic>? ?? const {};
+}) {
+  final workspace = event.workspace;
+  final channel = event.channel;
+  final userId = event.user;
+  final emoji = event.reaction;
+  final targetTs = event.targetTs;
+  final eventTs = event.eventTs;
+  final raw = event.rawEvent;
 
   final hit = locate?.call(channel, targetTs);
   if (hit == null) {
@@ -244,11 +226,11 @@ typedef SlackReactionFinder = TurnId? Function({
   );
 }
 
-/// Turns a `slack_reaction_removed` doorbell into a
+/// Turns a [relay.SlackReactionRemoved] into a
 /// `(SlackThread, Withdraw<SlackReaction>)`, or null when the mirror has no
 /// record of the target message or the reaction being undone.
 ///
-/// Slack identifies the reaction indirectly by `(target_ts, reaction, user)`;
+/// Slack identifies the reaction indirectly by `(targetTs, reaction, user)`;
 /// `Withdraw<SlackReaction>` needs the exact `TurnId` of the original
 /// `SlackReaction` node (is_shapes doctrine: a withdraw targets one node,
 /// not an anchor). So the parser does two lookups: [locate] to resolve the
@@ -256,25 +238,17 @@ typedef SlackReactionFinder = TurnId? Function({
 /// reaction node on that journey.
 ///
 /// A null return is not an error — the mirror may be cold, or the original
-/// `reaction_added` may have been missed. The caller logs and drops.
-(SlackThread, Withdraw<SlackReaction>)? parseDoorbellToWithdraw(
-  Map<String, dynamic> doorbell, {
+/// reaction-added event may have been missed. The caller logs and drops.
+(SlackThread, Withdraw<SlackReaction>)? parseReactionRemovedToWithdraw(
+  relay.SlackReactionRemoved event, {
   required SlackChannelTsLocate locate,
   required SlackReactionFinder findReaction,
 }) {
-  final event = doorbell['event'];
-  if (event != 'slack_reaction_removed') {
-    throw ArgumentError.value(
-      event,
-      'doorbell[event]',
-      'parseDoorbellToWithdraw handles slack_reaction_removed only',
-    );
-  }
-  final workspace = doorbell['team'] as String;
-  final channel = doorbell['channel'] as String;
-  final userId = doorbell['user'] as String;
-  final emoji = doorbell['reaction'] as String;
-  final targetTs = doorbell['target_ts'] as String;
+  final workspace = event.workspace;
+  final channel = event.channel;
+  final userId = event.user;
+  final emoji = event.reaction;
+  final targetTs = event.targetTs;
 
   final target = locate(channel, targetTs);
   if (target == null) return null;

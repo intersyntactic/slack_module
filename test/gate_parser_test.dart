@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:is_slack_module/is_slack_module.dart';
+import 'package:is_slack_relay/is_slack_relay.dart' as relay;
 import 'package:is_shapes/is_shapes.dart';
 import 'package:test/test.dart';
 
@@ -9,49 +10,44 @@ const team = 'T123';
 const channel = 'C999';
 const user = 'U999';
 
-Map<String, dynamic> messageDoorbell({
+relay.SlackMessage messageEvent({
   String text = 'hello',
   String eventTs = '1700000000.000100',
   String? rawThreadTs,
-  String eventName = 'slack_message',
+  bool mention = false,
 }) =>
-    {
-      'event': eventName,
-      'team': team,
-      'channel': channel,
-      'thread_ts': rawThreadTs ?? eventTs,
-      'user': user,
-      'text': text,
-      'event_ts': eventTs,
-      'subtype': null,
-      'raw_thread_ts': rawThreadTs,
-      'raw_event': {
-        'type': eventName == 'slack_mention' ? 'app_mention' : 'message',
+    relay.SlackMessage(
+      workspace: team,
+      channel: channel,
+      threadTs: rawThreadTs ?? eventTs,
+      mention: mention,
+      user: user,
+      text: text,
+      eventTs: eventTs,
+      rawThreadTs: rawThreadTs,
+      rawEvent: {
+        'type': mention ? 'app_mention' : 'message',
         'channel': channel,
         'user': user,
         'ts': eventTs,
         'thread_ts': ?rawThreadTs,
         'text': text,
       },
-    };
+    );
 
-Map<String, dynamic> editDoorbell({
+relay.SlackMessage editEvent({
   String editTs = '1700000005.000200',
   String newText = 'hello (edited)',
   String previousTs = '1700000000.000100',
   String anchor = '1700000000.000100',
 }) =>
-    {
-      'event': 'slack_message',
-      'team': team,
-      'channel': channel,
-      'thread_ts': anchor,
-      'user': null,
-      'text': null,
-      'event_ts': editTs,
-      'subtype': 'message_changed',
-      'raw_thread_ts': null,
-      'raw_event': {
+    relay.SlackMessage(
+      workspace: team,
+      channel: channel,
+      threadTs: anchor,
+      eventTs: editTs,
+      subtype: 'message_changed',
+      rawEvent: {
         'type': 'message',
         'subtype': 'message_changed',
         'channel': channel,
@@ -69,24 +65,21 @@ Map<String, dynamic> editDoorbell({
           'ts': previousTs,
         },
       },
-    };
+    );
 
-Map<String, dynamic> deleteDoorbell({
+relay.SlackMessage deleteEvent({
   String deleteTs = '1700000006.000300',
   String deletedTs = '1700000000.000100',
   String anchor = '1700000000.000100',
 }) =>
-    {
-      'event': 'slack_message',
-      'team': team,
-      'channel': channel,
-      'thread_ts': anchor,
-      'user': user,
-      'text': null,
-      'event_ts': deleteTs,
-      'subtype': 'message_deleted',
-      'raw_thread_ts': null,
-      'raw_event': {
+    relay.SlackMessage(
+      workspace: team,
+      channel: channel,
+      threadTs: anchor,
+      user: user,
+      eventTs: deleteTs,
+      subtype: 'message_deleted',
+      rawEvent: {
         'type': 'message',
         'subtype': 'message_deleted',
         'channel': channel,
@@ -99,13 +92,13 @@ Map<String, dynamic> deleteDoorbell({
           'ts': deletedTs,
         },
       },
-    };
+    );
 
 void main() {
   group('plain messages and mentions', () {
     test('a top-level app_mention parses to a SlackMessage', () {
-      final (path, node) = parseDoorbellToSlackNode(
-        messageDoorbell(eventName: 'slack_mention'),
+      final (path, node) = parseMessageToSlackNode(
+        messageEvent(mention: true),
       );
 
       expect(path.workspace, team);
@@ -118,16 +111,16 @@ void main() {
       expect(m.ts, '1700000000.000100');
       expect(m.text, 'hello');
       expect(m.by.toString(), 'slack:$team/$user');
-      // Top-level mention: raw_thread_ts is null, so SlackMessage.threadTs is
+      // Top-level mention: rawThreadTs is null, so SlackMessage.threadTs is
       // null. The journey-path anchor equals the message's own ts.
       expect(m.threadTs, isNull);
     });
 
     test(
-        'a reply inside an existing thread carries raw_thread_ts through to '
+        'a reply inside an existing thread carries rawThreadTs through to '
         'SlackMessage.threadTs', () {
-      final (path, node) = parseDoorbellToSlackNode(
-        messageDoorbell(
+      final (path, node) = parseMessageToSlackNode(
+        messageEvent(
           eventTs: '1700000050.000400',
           rawThreadTs: '1700000000.000100',
         ),
@@ -139,22 +132,17 @@ void main() {
       expect(m.threadTs, '1700000000.000100');
     });
 
-    test('a slash command doorbell is refused (not this parser\'s concern)',
-        () {
-      expect(
-        () => parseDoorbellToSlackNode({
-          'event': 'slack_command',
-          'team': team,
-          'channel': channel,
-          'thread_ts': 'x',
-        }),
-        throwsA(isA<ArgumentError>()),
+    test('an event missing text falls back to SlackEventRaw', () {
+      final event = messageEvent();
+      final withoutText = relay.SlackMessage(
+        workspace: event.workspace,
+        channel: event.channel,
+        threadTs: event.threadTs,
+        user: event.user,
+        eventTs: event.eventTs,
+        rawEvent: event.rawEvent,
       );
-    });
-
-    test('a message doorbell missing text falls back to SlackEventRaw', () {
-      final doorbell = messageDoorbell()..['text'] = null;
-      final (_, node) = parseDoorbellToSlackNode(doorbell);
+      final (_, node) = parseMessageToSlackNode(withoutText);
       expect(node, isA<SlackEventRaw>());
     });
   });
@@ -162,9 +150,9 @@ void main() {
   group('edits', () {
     test('a message_changed resolved by lookup becomes a SlackEdit', () {
       final priorId = TurnId.of(Uint8List.fromList([1, 2, 3]));
-      final (path, node) = parseDoorbellToSlackNode(
-        editDoorbell(),
-        lookup: (p, ts) =>
+      final (path, node) = parseMessageToSlackNode(
+        editEvent(),
+        lookup: (SlackThread p, String ts) =>
             p.threadTs == '1700000000.000100' && ts == '1700000000.000100'
                 ? priorId
                 : null,
@@ -181,7 +169,7 @@ void main() {
     });
 
     test('a message_changed with no lookup falls back to SlackEventRaw', () {
-      final (_, node) = parseDoorbellToSlackNode(editDoorbell());
+      final (_, node) = parseMessageToSlackNode(editEvent());
       expect(node, isA<SlackEventRaw>());
       final r = node as SlackEventRaw;
       expect(r.slackEventType, 'message');
@@ -192,8 +180,8 @@ void main() {
 
     test('a message_changed with a lookup that returns null falls back to raw',
         () {
-      final (_, node) = parseDoorbellToSlackNode(
-        editDoorbell(),
+      final (_, node) = parseMessageToSlackNode(
+        editEvent(),
         lookup: (_, _) => null,
       );
       expect(node, isA<SlackEventRaw>());
@@ -203,9 +191,9 @@ void main() {
   group('tombstones', () {
     test('a message_deleted resolved by lookup becomes a SlackTombstone', () {
       final targetId = TurnId.of(Uint8List.fromList([4, 5, 6]));
-      final (_, node) = parseDoorbellToSlackNode(
-        deleteDoorbell(),
-        lookup: (p, ts) =>
+      final (_, node) = parseMessageToSlackNode(
+        deleteEvent(),
+        lookup: (SlackThread p, String ts) =>
             p.threadTs == '1700000000.000100' && ts == '1700000000.000100'
                 ? targetId
                 : null,
@@ -218,7 +206,7 @@ void main() {
     });
 
     test('a message_deleted with no lookup falls back to SlackEventRaw', () {
-      final (_, node) = parseDoorbellToSlackNode(deleteDoorbell());
+      final (_, node) = parseMessageToSlackNode(deleteEvent());
       expect(node, isA<SlackEventRaw>());
       final r = node as SlackEventRaw;
       expect(r.slackEventType, 'message');
@@ -227,13 +215,21 @@ void main() {
     test(
         'a message_deleted missing both deleted_ts and previous_message falls '
         'back to SlackEventRaw', () {
-      final d = deleteDoorbell();
-      final raw = Map<String, dynamic>.from(d['raw_event'] as Map);
+      final d = deleteEvent();
+      final raw = Map<String, dynamic>.from(d.rawEvent);
       raw.remove('deleted_ts');
       raw.remove('previous_message');
-      d['raw_event'] = raw;
-      final (_, node) = parseDoorbellToSlackNode(
-        d,
+      final stripped = relay.SlackMessage(
+        workspace: d.workspace,
+        channel: d.channel,
+        threadTs: d.threadTs,
+        user: d.user,
+        eventTs: d.eventTs,
+        subtype: d.subtype,
+        rawEvent: raw,
+      );
+      final (_, node) = parseMessageToSlackNode(
+        stripped,
         lookup: (_, _) => TurnId.of(Uint8List.fromList([9, 9])),
       );
       expect(node, isA<SlackEventRaw>());
@@ -242,54 +238,75 @@ void main() {
 
   group('unknown subtypes', () {
     test('an unrecognised subtype falls back to SlackEventRaw', () {
-      final d = messageDoorbell();
-      d['subtype'] = 'thread_broadcast'; // real but unhandled
-      final (_, node) = parseDoorbellToSlackNode(d);
+      final event = messageEvent();
+      final broadcast = relay.SlackMessage(
+        workspace: event.workspace,
+        channel: event.channel,
+        threadTs: event.threadTs,
+        user: event.user,
+        text: event.text,
+        eventTs: event.eventTs,
+        subtype: 'thread_broadcast', // real but unhandled
+        rawEvent: event.rawEvent,
+      );
+      final (_, node) = parseMessageToSlackNode(broadcast);
       expect(node, isA<SlackEventRaw>());
     });
   });
 
   group('reactions', () {
-    Map<String, dynamic> reactionDoorbell({
-      String eventName = 'slack_reaction_added',
+    relay.SlackReactionAdded reactionAddedEvent({
       String targetTs = '1700000000.000100',
       String reaction = 'thumbsup',
       String eventTs = '1700000100.000500',
     }) =>
-        {
-          'event': eventName,
-          'team': team,
-          'channel': channel,
-          'thread_ts': null,
-          'user': user,
-          'reaction': reaction,
-          'target_ts': targetTs,
-          'event_ts': eventTs,
-          'raw_event': {
-            'type': eventName == 'slack_reaction_added'
-                ? 'reaction_added'
-                : 'reaction_removed',
+        relay.SlackReactionAdded(
+          workspace: team,
+          channel: channel,
+          user: user,
+          reaction: reaction,
+          targetTs: targetTs,
+          eventTs: eventTs,
+          rawEvent: {
+            'type': 'reaction_added',
             'user': user,
             'reaction': reaction,
-            'item': {
-              'type': 'message',
-              'channel': channel,
-              'ts': targetTs,
-            },
+            'item': {'type': 'message', 'channel': channel, 'ts': targetTs},
             'event_ts': eventTs,
           },
-        };
+        );
 
-    test('slack_reaction_added with a locate-hit becomes a SlackReaction', () {
+    relay.SlackReactionRemoved reactionRemovedEvent({
+      String targetTs = '1700000000.000100',
+      String reaction = 'thumbsup',
+      String eventTs = '1700000100.000500',
+    }) =>
+        relay.SlackReactionRemoved(
+          workspace: team,
+          channel: channel,
+          user: user,
+          reaction: reaction,
+          targetTs: targetTs,
+          eventTs: eventTs,
+          rawEvent: {
+            'type': 'reaction_removed',
+            'user': user,
+            'reaction': reaction,
+            'item': {'type': 'message', 'channel': channel, 'ts': targetTs},
+            'event_ts': eventTs,
+          },
+        );
+
+    test('reaction_added with a locate-hit becomes a SlackReaction', () {
       final targetId = TurnId.of(Uint8List.fromList([7, 7, 7]));
       final targetPath = SlackThread(
         workspace: team,
         channel: channel,
         threadTs: '1700000000.000100',
       );
-      final (path, node) = parseDoorbellToSlackNode(
-        reactionDoorbell(),
-        locate: (c, ts) =>
+      final (path, node) = parseReactionAddedToSlackNode(
+        reactionAddedEvent(),
+        locate: (String c, String ts) =>
             c == channel && ts == '1700000000.000100'
                 ? (id: targetId, path: targetPath)
                 : null,
@@ -304,34 +321,24 @@ void main() {
       expect(r.by.toString(), 'slack:$team/$user');
     });
 
-    test('slack_reaction_added with no locate falls back to SlackEventRaw', () {
-      final (path, node) = parseDoorbellToSlackNode(reactionDoorbell());
-      // Best-effort SlackThread: target_ts is used as the thread anchor.
+    test('reaction_added with no locate falls back to SlackEventRaw', () {
+      final (path, node) = parseReactionAddedToSlackNode(reactionAddedEvent());
+      // Best-effort SlackThread: targetTs is used as the thread anchor.
       expect(path.threadTs, '1700000000.000100');
       expect(node, isA<SlackEventRaw>());
     });
 
-    test('slack_reaction_added with a locate-miss falls back to SlackEventRaw',
-        () {
-      final (_, node) = parseDoorbellToSlackNode(
-        reactionDoorbell(),
+    test('reaction_added with a locate-miss falls back to SlackEventRaw', () {
+      final (_, node) = parseReactionAddedToSlackNode(
+        reactionAddedEvent(),
         locate: (_, _) => null,
       );
       expect(node, isA<SlackEventRaw>());
     });
 
-    test('slack_reaction_removed is refused by the SlackNode parser', () {
-      expect(
-        () => parseDoorbellToSlackNode(
-          reactionDoorbell(eventName: 'slack_reaction_removed'),
-        ),
-        throwsA(isA<ArgumentError>()),
-      );
-    });
-
     test(
-        'parseDoorbellToWithdraw with a locate+findReaction hit returns the '
-        'Withdraw', () {
+        'parseReactionRemovedToWithdraw with a locate+findReaction hit '
+        'returns the Withdraw', () {
       final messageId = TurnId.of(Uint8List.fromList([1, 2, 3]));
       final reactionId = TurnId.of(Uint8List.fromList([4, 5, 6]));
       final path = SlackThread(
@@ -339,11 +346,15 @@ void main() {
         channel: channel,
         threadTs: '1700000000.000100',
       );
-      final out = parseDoorbellToWithdraw(
-        reactionDoorbell(eventName: 'slack_reaction_removed'),
-        locate: (c, ts) =>
+      final out = parseReactionRemovedToWithdraw(
+        reactionRemovedEvent(),
+        locate: (String c, String ts) =>
             c == channel ? (id: messageId, path: path) : null,
-        findReaction: ({required target, required emoji, required by}) =>
+        findReaction: ({
+          required TurnId target,
+          required String emoji,
+          required ActorId by,
+        }) =>
             target == messageId && emoji == 'thumbsup' ? reactionId : null,
       );
       expect(out, isNotNull);
@@ -353,41 +364,39 @@ void main() {
       expect(withdraw.by.toString(), 'slack:$team/$user');
     });
 
-    test('parseDoorbellToWithdraw returns null on a locate-miss', () {
-      final out = parseDoorbellToWithdraw(
-        reactionDoorbell(eventName: 'slack_reaction_removed'),
+    test('parseReactionRemovedToWithdraw returns null on a locate-miss', () {
+      final out = parseReactionRemovedToWithdraw(
+        reactionRemovedEvent(),
         locate: (_, _) => null,
-        findReaction: ({required target, required emoji, required by}) =>
+        findReaction: ({
+          required TurnId target,
+          required String emoji,
+          required ActorId by,
+        }) =>
             TurnId.of(Uint8List.fromList([9])),
       );
       expect(out, isNull);
     });
 
-    test('parseDoorbellToWithdraw returns null when findReaction misses', () {
+    test('parseReactionRemovedToWithdraw returns null when findReaction misses',
+        () {
       final messageId = TurnId.of(Uint8List.fromList([1, 2, 3]));
       final path = SlackThread(
         workspace: team,
         channel: channel,
         threadTs: '1700000000.000100',
       );
-      final out = parseDoorbellToWithdraw(
-        reactionDoorbell(eventName: 'slack_reaction_removed'),
+      final out = parseReactionRemovedToWithdraw(
+        reactionRemovedEvent(),
         locate: (_, _) => (id: messageId, path: path),
-        findReaction: ({required target, required emoji, required by}) => null,
+        findReaction: ({
+          required TurnId target,
+          required String emoji,
+          required ActorId by,
+        }) =>
+            null,
       );
       expect(out, isNull);
-    });
-
-    test('parseDoorbellToWithdraw refuses a non-removed event', () {
-      expect(
-        () => parseDoorbellToWithdraw(
-          reactionDoorbell(eventName: 'slack_reaction_added'),
-          locate: (_, _) => null,
-          findReaction: ({required target, required emoji, required by}) =>
-              null,
-        ),
-        throwsA(isA<ArgumentError>()),
-      );
     });
   });
 
@@ -399,8 +408,8 @@ void main() {
           SlackActorId.forWorkspace(workspaceId: team, userId: 'UBOT');
       final receiver = SlackReceiver(mirror: mirror, selfActor: selfActor);
 
-      final (path, node) = parseDoorbellToSlackNode(
-        messageDoorbell(eventName: 'slack_mention'),
+      final (path, node) = parseMessageToSlackNode(
+        messageEvent(mention: true),
       );
       final record = receiver.receive(path, node);
 

@@ -22,6 +22,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:is_slack_module/is_slack_module.dart';
+import 'package:is_slack_relay/is_slack_relay.dart' as relay;
 import 'package:is_shapes/is_shapes.dart';
 
 Future<void> main() async {
@@ -106,14 +107,13 @@ Future<void> main() async {
 /// Wraps a [SlackRelay], which owns everything generic — signature
 /// verification, replay dedupe, the HTTP bind, ACK timing — and knows
 /// nothing of mirrors, node shapes or kickoff records. [SlackBot] is what
-/// turns the relay's bare doorbell into those: on a `trigger` outcome whose
-/// doorbell `parseDoorbellToSlackNode` can handle (`slack_mention`,
-/// `slack_message`), it runs parse → `SlackReceiver.receive` (writes to the
-/// mirror, mints a [KickoffRecord]) → [onKickoff]. `slack_command` doorbells
-/// skip the mirror entirely — slash commands are consumed by the
-/// model-selection surface, not the thread mirror. Without a [mirror] the
-/// bot still ACKs correctly signed events but does no mirror work; useful
-/// for tests that only care about the HTTP front end.
+/// turns the relay's typed [SlackEvent] into those: a [SlackMessage] or
+/// [SlackReactionAdded] runs parse → `SlackReceiver.receive` (writes to the
+/// mirror, mints a [KickoffRecord]) → [onKickoff]. A [SlackCommand] skips
+/// the mirror entirely — slash commands are consumed by the model-selection
+/// surface, not the thread mirror. Without a [mirror] the bot still ACKs
+/// correctly signed events but does no mirror work; useful for tests that
+/// only care about the HTTP front end.
 class SlackBot {
   SlackBot({
     required this.spec,
@@ -135,9 +135,9 @@ class SlackBot {
                       userId: 'unset',
                     ),
               ) {
-    _relay = SlackRelay(
+    _relay = relay.SlackRelay(
       spec: spec,
-      onDoorbell: _dispatch,
+      onEvent: _dispatch,
       now: now,
       bodyTimeout: bodyTimeout,
       log: log,
@@ -162,7 +162,7 @@ class SlackBot {
 
   /// Slash-command sink. Slash commands have no mirror path — they're a
   /// different surface. Defaulting to null drops them with a log line.
-  final void Function(Map<String, dynamic> doorbell)? onCommand;
+  final void Function(relay.SlackCommand command)? onCommand;
 
   final SlackReceiver? _receiver;
 
@@ -171,58 +171,59 @@ class SlackBot {
 
   /// Owns signature verification, replay dedupe, the HTTP bind and ACK
   /// timing. Built in the constructor body so it can tear off [_dispatch]
-  /// as its [SlackRelay.onDoorbell].
-  late final SlackRelay _relay;
+  /// as its [SlackRelay.onEvent].
+  late final relay.SlackRelay _relay;
 
   static void _stderr(String line) => stderr.writeln(line);
 
   Future<void> handle(HttpRequest req) => _relay.handle(req);
 
-  Future<void> _dispatch(Map<String, dynamic> doorbell) async {
+  Future<void> _dispatch(relay.SlackEvent event) async {
     try {
-      final event = doorbell['event'];
-      if (event == 'slack_command') {
-        final sink = onCommand;
-        if (sink == null) {
-          log('slack bot: slash command dropped (no onCommand): '
-              '${doorbell['command']} by ${doorbell['user']}');
-        } else {
-          sink(doorbell);
-        }
-        return;
+      switch (event) {
+        case relay.SlackCommand():
+          final sink = onCommand;
+          if (sink == null) {
+            log('slack bot: slash command dropped (no onCommand): '
+                '${event.command} by ${event.user}');
+          } else {
+            sink(event);
+          }
+        case relay.SlackReactionRemoved():
+          final receiver = _receiver;
+          if (receiver == null) return;
+          // Withdrawals don't produce a SlackNode, so they travel their own
+          // parser + receiver seam. A null return means the mirror has no
+          // record of the reaction being undone — log and drop; nothing is
+          // dropped silently because the relay's log line already said we
+          // woke on it.
+          final out = parseReactionRemovedToWithdraw(
+            event,
+            locate: mirror!.locate,
+            findReaction: mirror!.findReaction,
+          );
+          if (out == null) {
+            log('slack bot: reaction_removed with no mirror target — dropped');
+          } else {
+            onWithdraw?.call(receiver.withdraw(out.$1, out.$2));
+          }
+        case relay.SlackMessage():
+          final receiver = _receiver;
+          if (receiver == null) return;
+          final (path, node) = parseMessageToSlackNode(
+            event,
+            lookup: mirror!.find,
+          );
+          onKickoff?.call(receiver.receive(path, node));
+        case relay.SlackReactionAdded():
+          final receiver = _receiver;
+          if (receiver == null) return;
+          final (path, node) = parseReactionAddedToSlackNode(
+            event,
+            locate: mirror!.locate,
+          );
+          onKickoff?.call(receiver.receive(path, node));
       }
-      final receiver = _receiver;
-      if (receiver == null) {
-        // No mirror wired — ACK path still works; the parse+write pipeline
-        // just isn't engaged. Tests that skip the mirror land here.
-        return;
-      }
-      if (event == 'slack_reaction_removed') {
-        // Withdrawals don't produce a SlackNode, so they travel their own
-        // parser + receiver seam. A null return means the mirror has no
-        // record of the reaction being undone — log and drop; nothing is
-        // dropped silently because the gate's log line already said we
-        // woke on it.
-        final out = parseDoorbellToWithdraw(
-          doorbell,
-          locate: mirror!.locate,
-          findReaction: mirror!.findReaction,
-        );
-        if (out == null) {
-          log('slack bot: reaction_removed with no mirror target — dropped');
-          return;
-        }
-        final record = receiver.withdraw(out.$1, out.$2);
-        onWithdraw?.call(record);
-        return;
-      }
-      final (path, node) = parseDoorbellToSlackNode(
-        doorbell,
-        lookup: mirror!.find,
-        locate: mirror!.locate,
-      );
-      final record = receiver.receive(path, node);
-      onKickoff?.call(record);
     } catch (e, s) {
       log('slack bot: handler error: $e\n$s');
     }

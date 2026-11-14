@@ -21,9 +21,9 @@
 ///
 /// What's NOT here, deliberately:
 ///
-///   - The gate-doorbell → SlackNode parser lives in `gate_parser.dart`; this
+///   - The SlackEvent → SlackNode parser lives in `gate_parser.dart`; this
 ///     receiver is defined over a `SlackNode` so the mirror and kickoff logic
-///     stays testable without it. The parser went the doorbell-carries-text
+///     stays testable without it. The parser went the event-carries-text
 ///     route (§8 Done-when rule 1: no `conversations.history`).
 ///   - Edit → 🔄 → consent re-run flow (§8.2). The mirror supports it
 ///     structurally (edit nodes land as SlackEdit); the reaction-as-consent

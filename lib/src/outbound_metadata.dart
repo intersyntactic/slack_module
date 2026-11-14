@@ -14,7 +14,7 @@
 ///      message and the live receiver should drop it rather than mirror it.
 ///
 /// The functions here are pure (no mirror, no I/O) so they are testable in
-/// isolation and so the integration point on the gate-doorbell → SlackNode
+/// isolation and so the integration point on the SlackEvent → SlackNode
 /// parser can reuse them unchanged.
 library;
 
