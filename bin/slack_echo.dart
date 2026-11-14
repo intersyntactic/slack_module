@@ -88,9 +88,18 @@ Future<void> main() async {
   }
 }
 
+/// True for a message Slack sent on a bot's behalf — a bot token's own
+/// `chat.postMessage` replies come back in as a plain `message` event
+/// indistinguishable at the typed level, so an echo bot that didn't check
+/// this would echo its own echo, forever.
+bool fromBot(relay.SlackMessage message) =>
+    message.subtype == 'bot_message' || message.rawEvent['bot_id'] != null;
+
 Future<void> _answer(SlackClient client, relay.SlackEvent event) async {
   try {
     switch (event) {
+      case relay.SlackMessage() when fromBot(event):
+        stderr.writeln('echo: message in ${event.channel} from a bot — skipped');
       case relay.SlackMessage(:final text, :final mention) when text != null:
         stderr.writeln(
           'echo: ${mention ? 'mention' : 'message'} in ${event.channel}: $text',
