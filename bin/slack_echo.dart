@@ -22,6 +22,7 @@
 library;
 
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
@@ -67,12 +68,13 @@ Future<void> main() async {
   }
 
   final client = SlackClient(token: botToken, sender: _dartIoSend);
+  final answerer = Answerer(client);
   final relayServer = relay.SlackRelay(
     spec: relay.SlackSourceSpec(
       signingSecret: signingSecret,
       teamIdAllowlist: allow,
     ),
-    onEvent: (event) => _answer(client, event),
+    onEvent: answerer.answer,
   );
 
   final server = await HttpServer.bind(address, port);
@@ -95,38 +97,89 @@ Future<void> main() async {
 bool fromBot(relay.SlackMessage message) =>
     message.subtype == 'bot_message' || message.rawEvent['bot_id'] != null;
 
-Future<void> _answer(SlackClient client, relay.SlackEvent event) async {
-  try {
-    switch (event) {
-      case relay.SlackMessage() when fromBot(event):
-        stderr.writeln('echo: message in ${event.channel} from a bot — skipped');
-      case relay.SlackMessage(:final text, :final mention) when text != null:
-        stderr.writeln(
-          'echo: ${mention ? 'mention' : 'message'} in ${event.channel}: $text',
-        );
-        await client.chatPostMessage(
-          channel: event.channel,
-          threadTs: event.threadTs,
-          text: 'echo: $text',
-        );
-      case relay.SlackMessage():
-        // No text (e.g. an edit/delete subtype, or a content-free event) —
-        // nothing to echo.
-        stderr.writeln('echo: message in ${event.channel} with no text — skipped');
-      case relay.SlackReactionAdded(:final reaction, :final user):
-        stderr.writeln('echo: reaction_added $reaction by $user — logged, no reply');
-      case relay.SlackReactionRemoved(:final reaction, :final user):
-        stderr.writeln('echo: reaction_removed $reaction by $user — logged, no reply');
-      case relay.SlackCommand(:final command, :final text, :final user):
-        stderr.writeln('echo: command $command "$text" by $user');
-        await client.chatPostMessage(
-          channel: event.channel,
-          threadTs: event.threadTs,
-          text: 'echo: $command $text',
-        );
+/// Answers through the Slack Web API, deduped against Slack's own habit of
+/// delivering an @-mentioned post twice: once as `app_mention`, once as a
+/// plain `message`, each carrying the same text and the same underlying
+/// `(channel, eventTs)` — in either order. Replying to both would double the
+/// echo, so a reply is only sent the first time a given post is seen.
+class Answerer {
+  Answerer(
+    this.client, {
+    DateTime Function()? now,
+    this.answeredFor = const Duration(minutes: 2),
+    this.answeredMax = 500,
+  }) : _now = now ?? DateTime.now;
+
+  final SlackClient client;
+  final Duration answeredFor;
+  final int answeredMax;
+  final DateTime Function() _now;
+
+  /// `channel:eventTs` to first-sight time, oldest first.
+  final LinkedHashMap<String, DateTime> _answered = LinkedHashMap();
+
+  /// True if `(channel, eventTs)` was already answered inside [answeredFor];
+  /// otherwise records it as answered now. A null `eventTs` is never deduped
+  /// — there is no post identity to key on.
+  bool _alreadyAnswered(String channel, String? eventTs) {
+    if (eventTs == null) return false;
+    final key = '$channel:$eventTs';
+    final now = _now();
+    final at = _answered[key];
+    if (at != null && now.difference(at) <= answeredFor) return true;
+    _answered.remove(key);
+    _answered[key] = now;
+    while (_answered.length > answeredMax) {
+      _answered.remove(_answered.keys.first);
     }
-  } on SlackApiError catch (e) {
-    stderr.writeln('echo: $e');
+    final cutoff = now.subtract(answeredFor);
+    while (_answered.isNotEmpty && _answered.values.first.isBefore(cutoff)) {
+      _answered.remove(_answered.keys.first);
+    }
+    return false;
+  }
+
+  Future<void> answer(relay.SlackEvent event) async {
+    try {
+      switch (event) {
+        case relay.SlackMessage() when fromBot(event):
+          stderr.writeln('echo: message in ${event.channel} from a bot — skipped');
+        case relay.SlackMessage(:final text, :final mention, :final eventTs)
+            when text != null:
+          if (_alreadyAnswered(event.channel, eventTs)) {
+            stderr.writeln(
+              'echo: ${mention ? 'mention' : 'message'} in ${event.channel} — '
+              'duplicate delivery of the same post, skipped',
+            );
+            return;
+          }
+          stderr.writeln(
+            'echo: ${mention ? 'mention' : 'message'} in ${event.channel}: $text',
+          );
+          await client.chatPostMessage(
+            channel: event.channel,
+            threadTs: event.threadTs,
+            text: 'echo: $text',
+          );
+        case relay.SlackMessage():
+          // No text (e.g. an edit/delete subtype, or a content-free event) —
+          // nothing to echo.
+          stderr.writeln('echo: message in ${event.channel} with no text — skipped');
+        case relay.SlackReactionAdded(:final reaction, :final user):
+          stderr.writeln('echo: reaction_added $reaction by $user — logged, no reply');
+        case relay.SlackReactionRemoved(:final reaction, :final user):
+          stderr.writeln('echo: reaction_removed $reaction by $user — logged, no reply');
+        case relay.SlackCommand(:final command, :final text, :final user):
+          stderr.writeln('echo: command $command "$text" by $user');
+          await client.chatPostMessage(
+            channel: event.channel,
+            threadTs: event.threadTs,
+            text: 'echo: $command $text',
+          );
+      }
+    } on SlackApiError catch (e) {
+      stderr.writeln('echo: $e');
+    }
   }
 }
 
