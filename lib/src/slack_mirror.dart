@@ -64,7 +64,7 @@ abstract interface class SlackMirror {
   /// the arguments; null if none exists. O(1): a flat index keyed by that
   /// triple, maintained on write. Used to resolve `reaction_removed` to the
   /// exact `SlackReaction` it withdraws — Slack identifies the reaction
-  /// indirectly via `(message, emoji, user)`, and `Withdraw<SlackReaction>`
+  /// indirectly via `(message, emoji, user)`, and `Withdrawal<SlackReaction>`
   /// requires the exact `TurnId` of what it undoes (per is_shapes' doctrine:
   /// a withdraw targets one node, not an anchor).
   TurnId? findReaction({
@@ -73,16 +73,16 @@ abstract interface class SlackMirror {
     required ActorId by,
   });
 
-  /// Records a `Withdraw<SlackReaction>` in the mirror's side table — a
+  /// Records a `Withdrawal<SlackReaction>` in the mirror's side table — a
   /// withdrawal does NOT create a new [SlackNode] record (the sealed family
   /// deliberately has no `SlackReactionWithdrawn` variant; the withdrawal IS
   /// how reactions are taken back, per is_shapes' doctrine). After this,
   /// [withdrawnBy] returns `withdraw` for its target.
-  void writeWithdraw(Withdraw<SlackReaction> withdraw);
+  void writeWithdraw(Withdrawal<SlackReaction> withdraw);
 
   /// The withdrawal targeting [target], or null if it has not been withdrawn.
   /// A reader asks this to decide whether an earlier reaction still counts.
-  Withdraw<SlackReaction>? withdrawnBy(TurnId target);
+  Withdrawal<SlackReaction>? withdrawnBy(TurnId target);
 
   /// The current epoch of [path]. Starts at 1 on first write; stays at 1
   /// until an `adopt`-like op bumps it. See §8.6.
@@ -106,9 +106,9 @@ final class InMemorySlackMirror implements SlackMirror {
   /// `(target, emoji, by) → TurnId` reverse index for `SlackReaction` nodes.
   final Map<String, TurnId> _byReaction = {};
 
-  /// Side table for `Withdraw<SlackReaction>`. See [writeWithdraw] — the
+  /// Side table for `Withdrawal<SlackReaction>`. See [writeWithdraw] — the
   /// doctrine keeps withdrawals out of the node record.
-  final Map<TurnId, Withdraw<SlackReaction>> _withdrawals = {};
+  final Map<TurnId, Withdrawal<SlackReaction>> _withdrawals = {};
 
   @override
   TurnId write(SlackThread path, SlackNode node) {
@@ -170,12 +170,12 @@ final class InMemorySlackMirror implements SlackMirror {
       _byReaction[_reactionKey(target, emoji, by)];
 
   @override
-  void writeWithdraw(Withdraw<SlackReaction> withdraw) {
+  void writeWithdraw(Withdrawal<SlackReaction> withdraw) {
     _withdrawals[withdraw.target] = withdraw;
   }
 
   @override
-  Withdraw<SlackReaction>? withdrawnBy(TurnId target) => _withdrawals[target];
+  Withdrawal<SlackReaction>? withdrawnBy(TurnId target) => _withdrawals[target];
 }
 
 /// Build the `(channel, ts)` index key for a node, or null for shapes that

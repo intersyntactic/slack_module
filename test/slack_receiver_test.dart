@@ -112,7 +112,7 @@ void main() {
       expect(out.wantsTurn, isFalse);
     });
 
-    test('withdraw records the Withdraw and asks for a turn when foreign',
+    test('withdraw records the Withdrawal and asks for a turn when foreign',
         () {
       final msgId = mirror.write(
         _path,
@@ -122,7 +122,7 @@ void main() {
         _path,
         SlackReaction(target: msgId, emoji: 'thumbsup', by: _human, ts: '2'),
       );
-      final w = Withdraw<SlackReaction>(target: reactionId, by: _human);
+      final w = Withdrawal<SlackReaction>(target: reactionId, by: _human);
       final out = receiver.withdraw(_path, w);
 
       expect(out.withdrew, reactionId);
@@ -148,7 +148,7 @@ void main() {
       );
       final out = receiver.withdraw(
         _path,
-        Withdraw<SlackReaction>(target: reactionId, by: _self),
+        Withdrawal<SlackReaction>(target: reactionId, by: _self),
       );
       expect(out.wantsTurn, isFalse);
     });

@@ -38,7 +38,7 @@
 ///     anchor — correct for reactions-on-top-level messages, best-effort
 ///     otherwise.
 ///   - [relay.SlackReactionRemoved] is handled by [parseReactionRemovedToWithdraw]
-///     instead, which produces a `Withdraw<SlackReaction>`. A withdrawal is
+///     instead, which produces a `Withdrawal<SlackReaction>`. A withdrawal is
 ///     not a `SlackNode`, so it cannot live in that function's return type.
 library;
 
@@ -65,7 +65,7 @@ typedef SlackChannelTsLocate =
     ({TurnId id, SlackThread path})? Function(String channel, String ts);
 
 /// Resolves `(target, emoji, by)` to the `TurnId` of the matching
-/// `SlackReaction` on `target`'s path. `Withdraw<SlackReaction>` requires
+/// `SlackReaction` on `target`'s path. `Withdrawal<SlackReaction>` requires
 /// the exact `TurnId` of what it undoes (is_shapes doctrine: a withdraw
 /// targets one node, not an anchor); Slack identifies the reaction
 /// indirectly, so we need the mirror to walk and match.
@@ -227,11 +227,11 @@ typedef SlackReactionFinder = TurnId? Function({
 }
 
 /// Turns a [relay.SlackReactionRemoved] into a
-/// `(SlackThread, Withdraw<SlackReaction>)`, or null when the mirror has no
+/// `(SlackThread, Withdrawal<SlackReaction>)`, or null when the mirror has no
 /// record of the target message or the reaction being undone.
 ///
 /// Slack identifies the reaction indirectly by `(targetTs, reaction, user)`;
-/// `Withdraw<SlackReaction>` needs the exact `TurnId` of the original
+/// `Withdrawal<SlackReaction>` needs the exact `TurnId` of the original
 /// `SlackReaction` node (is_shapes doctrine: a withdraw targets one node,
 /// not an anchor). So the parser does two lookups: [locate] to resolve the
 /// target message's id and journey, [findReaction] to resolve the specific
@@ -239,7 +239,7 @@ typedef SlackReactionFinder = TurnId? Function({
 ///
 /// A null return is not an error — the mirror may be cold, or the original
 /// reaction-added event may have been missed. The caller logs and drops.
-(SlackThread, Withdraw<SlackReaction>)? parseReactionRemovedToWithdraw(
+(SlackThread, Withdrawal<SlackReaction>)? parseReactionRemovedToWithdraw(
   relay.SlackReactionRemoved event, {
   required SlackChannelTsLocate locate,
   required SlackReactionFinder findReaction,
@@ -258,7 +258,7 @@ typedef SlackReactionFinder = TurnId? Function({
   );
   final reactionId = findReaction(target: target.id, emoji: emoji, by: by);
   if (reactionId == null) return null;
-  return (target.path, Withdraw<SlackReaction>(target: reactionId, by: by));
+  return (target.path, Withdrawal<SlackReaction>(target: reactionId, by: by));
 }
 
 SlackEventRaw _raw(

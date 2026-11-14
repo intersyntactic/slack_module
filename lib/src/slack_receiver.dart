@@ -59,7 +59,7 @@ final class KickoffRecord {
   final bool wantsTurn;
 }
 
-/// The withdrawal analogue of [KickoffRecord]. A `Withdraw<SlackReaction>`
+/// The withdrawal analogue of [KickoffRecord]. A `Withdrawal<SlackReaction>`
 /// does not append to the main node chain (is_shapes doctrine: withdrawals
 /// are a side mechanism, not a shape family member), so there is no new
 /// `mirroredAs` id — instead [withdrew] points at the `SlackReaction` the
@@ -100,7 +100,7 @@ final class SlackReceiver {
     );
   }
 
-  /// Records a `Withdraw<SlackReaction>` and emits the record the turn
+  /// Records a `Withdrawal<SlackReaction>` and emits the record the turn
   /// engine consumes. The withdrawal is written to the mirror's side table
   /// (see [SlackMirror.writeWithdraw]) rather than appended to the chain.
   ///
@@ -109,7 +109,7 @@ final class SlackReceiver {
   /// consent after the agent prompted for one is the textbook case for
   /// wanting a turn (to retract the running edit-fork, per §4.1); a
   /// self-removal is the receiver's own reply pipeline cleaning up.
-  WithdrawRecord withdraw(SlackThread path, Withdraw<SlackReaction> w) {
+  WithdrawRecord withdraw(SlackThread path, Withdrawal<SlackReaction> w) {
     mirror.writeWithdraw(w);
     return WithdrawRecord(
       withdrew: w.target,

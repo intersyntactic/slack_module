@@ -175,7 +175,7 @@ void main() {
         SlackReaction(target: msgId, emoji: 'thumbsup', by: _actor(), ts: 'r'),
       );
       expect(m.withdrawnBy(reactionId), isNull);
-      final w = Withdraw<SlackReaction>(target: reactionId, by: _actor());
+      final w = Withdrawal<SlackReaction>(target: reactionId, by: _actor());
       m.writeWithdraw(w);
       expect(m.withdrawnBy(reactionId), same(w));
     });

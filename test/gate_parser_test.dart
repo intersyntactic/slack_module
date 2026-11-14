@@ -338,7 +338,7 @@ void main() {
 
     test(
         'parseReactionRemovedToWithdraw with a locate+findReaction hit '
-        'returns the Withdraw', () {
+        'returns the Withdrawal', () {
       final messageId = TurnId.of(Uint8List.fromList([1, 2, 3]));
       final reactionId = TurnId.of(Uint8List.fromList([4, 5, 6]));
       final path = SlackThread(

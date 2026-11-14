@@ -87,18 +87,18 @@ final class SlackEdit implements SlackNode {
 /// A reaction (emoji) added to a Slack node.
 ///
 /// Unannotated: every field is identity (default rule). [ts] being identity
-/// matters for the add → `Withdraw<SlackReaction>` → re-add cycle: the re-add
+/// matters for the add → `Withdrawal<SlackReaction>` → re-add cycle: the re-add
 /// has a distinct TurnId because its ts differs, so it's a new reaction node
 /// rather than colliding with the first.
 ///
 /// Declared `final` for covariance safety: a subclass of SlackReaction would
-/// let `Withdraw<SubReaction>` bind where `Withdraw<SlackReaction>` is
+/// let `Withdrawal<SubReaction>` bind where `Withdrawal<SlackReaction>` is
 /// accepted. `final` closes that door.
 ///
 /// Implements [Withdrawable]: a reaction can be taken back by a
-/// `Withdraw<SlackReaction>`. The other Slack shapes deliberately do NOT
+/// `Withdrawal<SlackReaction>`. The other Slack shapes deliberately do NOT
 /// implement it — a message is removed by its [SlackTombstone], not a
-/// withdrawal, so `Withdraw<SlackMessage>` is refused at compile time.
+/// withdrawal, so `Withdrawal<SlackMessage>` is refused at compile time.
 final class SlackReaction implements SlackNode, Withdrawable {
   const SlackReaction({
     required this.target,

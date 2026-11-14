@@ -2,8 +2,8 @@
 /// code that shouldn't bind must fail to compile. These runtime tests cover
 /// the parts the analyzer can't: id round-tripping and structural equality.
 ///
-/// The analyzer-level tests (that `Withdraw<SlackReaction>` can't be assigned
-/// to `Withdraw<Approve>`, that `Correction<SlackVerdict>` can't bind where
+/// The analyzer-level tests (that `Withdrawal<SlackReaction>` can't be assigned
+/// to `Withdrawal<Approval>`, that `Correction<SlackVerdict>` can't bind where
 /// `Correction<OtherVerdict>` is expected) are already verified in
 /// is_annotation_shapes' own spike using `TypeSystem.isAssignableTo` (repo
 /// renamed from `is_review_shapes` on 2026-11-06:
@@ -81,19 +81,19 @@ void main() {
       expect(r.target, targetId);
     });
 
-    test('Withdraw<SlackReaction> targets a specific reaction TurnId', () {
+    test('Withdrawal<SlackReaction> targets a specific reaction TurnId', () {
       final by = SlackActorId.forWorkspace(workspaceId: 'T01ABC', userId: 'U01ABC234XY');
       final reactionId = TurnId.parse('2' * 64)!;
-      final w = Withdraw<SlackReaction>(target: reactionId, by: by);
+      final w = Withdrawal<SlackReaction>(target: reactionId, by: by);
       expect(w.target, reactionId);
       expect(w.by, by);
     });
 
     test('SlackReaction implements Withdrawable', () {
-      // The compile-time guarantee this proves at runtime: Withdraw<T> is
-      // bounded by Withdrawable, so Withdraw<SlackReaction> only type-checks
+      // The compile-time guarantee this proves at runtime: Withdrawal<T> is
+      // bounded by Withdrawable, so Withdrawal<SlackReaction> only type-checks
       // because SlackReaction declares it. Other Slack shapes deliberately
-      // do not — Withdraw<SlackMessage> is refused by the analyzer.
+      // do not — Withdrawal<SlackMessage> is refused by the analyzer.
       final by = SlackActorId.forWorkspace(workspaceId: 'T01ABC', userId: 'U01ABC234XY');
       final r = SlackReaction(
         target: TurnId.parse('4' * 64)!,
