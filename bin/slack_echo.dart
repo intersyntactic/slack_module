@@ -154,17 +154,21 @@ class Answerer {
             return;
           }
           stderr.writeln(
-            'echo: ${mention ? 'mention' : 'message'} in ${event.channel}: $text',
+            'echo: ${mention ? 'mention' : 'message'} in ${event.channel} '
+            '(thread_ts=${event.threadTs}): $text',
           );
           await client.chatPostMessage(
             channel: event.channel,
             threadTs: event.threadTs,
             text: 'echo: $text',
           );
-        case relay.SlackMessage():
+        case relay.SlackMessage(:final subtype):
           // No text (e.g. an edit/delete subtype, or a content-free event) —
           // nothing to echo.
-          stderr.writeln('echo: message in ${event.channel} with no text — skipped');
+          stderr.writeln(
+            'echo: message in ${event.channel} with no text — skipped '
+            '(subtype=$subtype)',
+          );
         case relay.SlackReactionAdded(:final reaction, :final user):
           stderr.writeln('echo: reaction_added $reaction by $user — logged, no reply');
         case relay.SlackReactionRemoved(:final reaction, :final user):
