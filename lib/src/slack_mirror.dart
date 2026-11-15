@@ -33,6 +33,14 @@ abstract interface class SlackMirror {
   /// Records [node] under [path] and returns its minted [TurnId].
   TurnId write(SlackThread path, SlackNode node);
 
+  /// The [TurnId] [node] would mint if written now, without writing it.
+  /// Since the id is a pure hash of the node's own fields (see [write]),
+  /// two deliveries of content-identical nodes — Slack's own app_mention +
+  /// plain-message pair for one @-mention is the known case — mint the same
+  /// id. A caller can therefore tell a genuine duplicate from new content by
+  /// checking `nodeAt(idFor(node))` before writing.
+  TurnId idFor(SlackNode node);
+
   /// The [TurnId] on [path] whose node's Slack `ts` equals [ts], or null if
   /// no such node is in the mirror. Used by `gate_parser.dart`'s
   /// [SlackMessageLookup] to anchor edits and tombstones to the message they
@@ -109,6 +117,9 @@ final class InMemorySlackMirror implements SlackMirror {
   /// Side table for `Withdrawal<SlackReaction>`. See [writeWithdraw] — the
   /// doctrine keeps withdrawals out of the node record.
   final Map<TurnId, Withdrawal<SlackReaction>> _withdrawals = {};
+
+  @override
+  TurnId idFor(SlackNode node) => _mintId(node);
 
   @override
   TurnId write(SlackThread path, SlackNode node) {

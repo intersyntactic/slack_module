@@ -153,6 +153,20 @@ void main() {
       expect(out.wantsTurn, isFalse);
     });
 
+    test(
+        'a second delivery of the same content does not ask for a second turn',
+        () {
+      // Mirrors Slack's own app_mention + plain-message pair for one
+      // @-mention: two distinct, correctly-signed deliveries, identical
+      // content.
+      final node = SlackMessage(channel: 'C01', ts: '1', by: _human, text: 'hi');
+      final first = receiver.receive(_path, node);
+      final second = receiver.receive(_path, node);
+      expect(first.wantsTurn, isTrue);
+      expect(second.wantsTurn, isFalse);
+      expect(second.mirroredAs, equals(first.mirroredAs));
+    });
+
     test('two kickoffs on the same path mint independent records', () {
       final a = receiver.receive(
         _path,

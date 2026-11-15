@@ -91,12 +91,18 @@ final class SlackReceiver {
   final ActorId selfActor;
 
   KickoffRecord receive(SlackThread path, SlackNode node) {
+    // Checked before the write: content-identical nodes mint the same id
+    // (see SlackMirror.idFor), so a hit here means this exact node already
+    // arrived — Slack's app_mention + plain-message pair for one @-mention
+    // is the known case — and the turn it already kicked off must not be
+    // kicked off a second time.
+    final alreadyMirrored = mirror.nodeAt(mirror.idFor(node)) != null;
     final id = mirror.write(path, node);
     return KickoffRecord(
       mirroredAs: id,
       path: path,
       epoch: mirror.epochFor(path),
-      wantsTurn: _wantsTurn(node),
+      wantsTurn: !alreadyMirrored && _wantsTurn(node),
     );
   }
 
