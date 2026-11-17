@@ -53,7 +53,7 @@ abstract interface class SlackMirror {
   /// what callers need.
   TurnId? find(SlackThread path, String ts);
 
-  /// Reverse index: the node at `(channel, ts)`, with the journey it's on.
+  /// Reverse index: the node at `(channel, ts)`, with the mission it's on.
   /// O(1) lookup against a map maintained on write. Covers shapes that carry
   /// a channel directly — `SlackMessage`, `SlackEdit`, `SlackEventRaw`; a
   /// `SlackReaction` has no channel of its own (it references its target) so
@@ -61,11 +61,11 @@ abstract interface class SlackMirror {
   ///
   /// Used by the reaction path in `gate_parser.dart`: a reaction event
   /// carries `event.item.channel` and `event.item.ts` (the target message's
-  /// ts), from which both the target's `TurnId` and the journey it sits on
+  /// ts), from which both the target's `TurnId` and the mission it sits on
   /// are needed.
   ({TurnId id, SlackThread path})? locate(String channel, String ts);
 
-  /// The journey a node is on, or null if the mirror has never seen it.
+  /// The mission a node is on, or null if the mirror has never seen it.
   SlackThread? pathOf(TurnId id);
 
   /// The `TurnId` of a reaction node whose fields `(target, emoji, by)` match

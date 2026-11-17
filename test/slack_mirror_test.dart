@@ -120,7 +120,7 @@ void main() {
       expect(m.locate('C01', 'reaction-ts'), isNull);
     });
 
-    test('pathOf returns the journey a TurnId sits on', () {
+    test('pathOf returns the mission a TurnId sits on', () {
       final m = InMemorySlackMirror();
       final p1 = _path(channel: 'C01');
       final p2 = _path(channel: 'C02');

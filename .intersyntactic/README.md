@@ -2,7 +2,7 @@
 
 Module manifest for `intersyntactic_slack`. Discoverable by intersyntactic at
 composition time; versioned with the code (not with the user's home-pinned
-runtime state, which lives in `~/.intersyntactic/journey_paths/<journey_path_id>/`).
+runtime state, which lives in `~/.intersyntactic/trajectories/<trajectory_id>/`).
 
 The format follows `composition.md`, intersyntactic's own design doc
 (PROPOSED 2026-11-04, ratified as the state of truth by Nick 2026-11-05):
@@ -11,8 +11,8 @@ this module brings to theirs. The core binds each offering at the acceptors it
 names, refusing a mismatch with its reason before anything runs.
 
 See [`manifest.json`](./manifest.json) for the declared shape, and
-[`../docs/externally-anchored-journey-paths.md`](../docs/externally-anchored-journey-paths.md)
-for how a Slack-anchored journey path works as a kind of journey path.
+[`../docs/externally-anchored-trajectories.md`](../docs/externally-anchored-trajectories.md)
+for how a Slack-anchored trajectory works as a kind of trajectory.
 
 ## Format
 
@@ -26,9 +26,9 @@ The Slack module:
 
 - **Opens one acceptor**, `slack_mirror`. Shape: a Slack-anchored node
   (`message`, `edit`, `reaction`, `tombstone`, or `slack_event_raw`). Use:
-  keep the mirror of a Slack-anchored journey path in sync with Slack. From: other
+  keep the mirror of a Slack-anchored trajectory in sync with Slack. From: other
   modules — the orchestrator (`composition.md` §7) delivers nodes here after
-  resolving an incoming webhook to its journey path.
+  resolving an incoming webhook to its trajectory.
 - **Offers five node shapes** at `slack_mirror`: the four typed shapes plus
   the catch-all `slack_event_raw`, which carries a `slack_event_type`
   discriminator. The catch-all is what lets composition.md §2's "a node of
@@ -54,10 +54,10 @@ The Slack module:
   for declaring it isn't settled upstream. `intersyntactic-hart-aspects`
   and this module both carry the mapping in design docs rather than in the
   manifest, and intersyntactic-16 is drafting it for Nick.
-- **A journey path's working-tree shape.** Whether a journey may have a working
+- **A trajectory's working-tree shape.** Whether a mission may have a working
   tree that isn't a git checkout is open (same note). The design doc
-  describes what a Slack-anchored journey path needs (a plain directory at
-  `~/.intersyntactic/journey_paths/<journey_path_id>/`, no `.git`, no remote, just a lock
+  describes what a Slack-anchored trajectory needs (a plain directory at
+  `~/.intersyntactic/trajectories/<trajectory_id>/`, no `.git`, no remote, just a lock
   + head + append-only nodes store) but the manifest doesn't bake it in
   until the ruling lands.
 - **`restricted_kit` from v0.1.** Retired. Tools describe effects; drivers
@@ -77,7 +77,7 @@ loudly, close the loop in a single commit — stays.
 
 ## Where runtime state lives (not here)
 
-A journey path's writable state (lock, head, append-only nodes) lives at the
-journey path's home under `~/.intersyntactic/journey_paths/<journey_path_id>/`, not in-repo. The
+A trajectory's writable state (lock, head, append-only nodes) lives at the
+trajectory's home under `~/.intersyntactic/trajectories/<trajectory_id>/`, not in-repo. The
 in-repo `.intersyntactic/` carries declarative module shape only, per the
 "configuration with code; writable state with the user" split.

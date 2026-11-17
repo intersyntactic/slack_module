@@ -57,9 +57,9 @@ import 'slack_actor_id.dart';
 /// parser falls back to `SlackEventRaw` so nothing is dropped.
 typedef SlackMessageLookup = TurnId? Function(SlackThread path, String ts);
 
-/// Resolves `(channel, ts)` to the mirrored node's id and the journey it
+/// Resolves `(channel, ts)` to the mirrored node's id and the mission it
 /// sits on, in one query. Used by the reaction path — a reaction event
-/// carries `event.targetTs` but no `threadTs`, so the journey can only be
+/// carries `event.targetTs` but no `threadTs`, so the mission can only be
 /// learned from a mirror index.
 typedef SlackChannelTsLocate =
     ({TurnId id, SlackThread path})? Function(String channel, String ts);
@@ -202,7 +202,7 @@ typedef SlackReactionFinder = TurnId? Function({
   if (hit == null) {
     // No target in the mirror — can't anchor the SlackReaction (its `target`
     // field is required). Fall back to a faithful raw record keyed on the
-    // best-available journey, so nothing is dropped. target_ts is usually
+    // best-available mission, so nothing is dropped. target_ts is usually
     // the thread_ts for top-level reactions; for mid-thread reactions this
     // is a best-effort guess, deliberately NOT fabricating a SlackReaction.
     final path = SlackThread(
@@ -234,8 +234,8 @@ typedef SlackReactionFinder = TurnId? Function({
 /// `Withdrawal<SlackReaction>` needs the exact `TurnId` of the original
 /// `SlackReaction` node (is_shapes doctrine: a withdraw targets one node,
 /// not an anchor). So the parser does two lookups: [locate] to resolve the
-/// target message's id and journey, [findReaction] to resolve the specific
-/// reaction node on that journey.
+/// target message's id and mission, [findReaction] to resolve the specific
+/// reaction node on that mission.
 ///
 /// A null return is not an error — the mirror may be cold, or the original
 /// reaction-added event may have been missed. The caller logs and drops.

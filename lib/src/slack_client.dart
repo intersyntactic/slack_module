@@ -58,7 +58,7 @@ class SlackHttpResponse {
 /// poster can leave bytes on its own message that survive the round-trip
 /// without being part of the visible text.
 ///
-/// Used by §8.6 to carry `(journey_path, epoch)` on outbound replies, so a
+/// Used by §8.6 to carry `(trajectory, epoch)` on outbound replies, so a
 /// live receiver can tell its own posts from a zombie's.
 class SlackMessageMetadata {
   const SlackMessageMetadata({
@@ -146,8 +146,8 @@ class SlackClient {
   ///
   /// [metadata] rides along as Slack's `metadata` field (`{event_type,
   /// event_payload}`), visible on the posted message when read back via
-  /// `conversations.replies`. Used by the externally-anchored journey path
-  /// pattern (§8.6) to stamp `(journey_path, epoch)` on outbound messages so
+  /// `conversations.replies`. Used by the externally-anchored trajectory
+  /// pattern (§8.6) to stamp `(trajectory, epoch)` on outbound messages so
   /// a live receiver can tell its own posts from a zombie's.
   Future<String> chatPostMessage({
     required String channel,
@@ -197,7 +197,7 @@ class SlackClient {
 
   /// Adds an emoji reaction to a message. The design uses this as a one-click
   /// consent prompt: the agent reacts, a seat adds the same emoji to agree,
-  /// no reaction means no action. See docs/externally-anchored-journey-paths.md §3
+  /// no reaction means no action. See docs/externally-anchored-trajectories.md §3
   /// (consent is an instance of appending a reaction-shaped node) and §4.1,
   /// §4.2 for the edit-replay and proactive-remember uses.
   ///
