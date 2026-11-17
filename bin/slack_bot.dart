@@ -78,7 +78,7 @@ Future<void> main() async {
   // onKickoff logs; task 11 replaces it with the agent-host client.
   final bot = SlackBot(
     spec: spec,
-    mirror: InMemorySlackMirror(),
+    mirror: InMemoryRecordsAndFindsSlackNodes(),
     onKickoff: (r) => stderr.writeln(
       'slack bot: kickoff ${r.mirroredAs} path=${r.path.channel}/${r.path.threadTs} '
       'epoch=${r.epoch} wantsTurn=${r.wantsTurn}',
@@ -147,8 +147,9 @@ class SlackBot {
   final SlackSourceSpec spec;
 
   /// The thread mirror. If null, the bot ACKs and logs but does not parse
-  /// or record. Populated in `main` with an [InMemorySlackMirror].
-  final SlackMirror? mirror;
+  /// or record. Populated in `main` with an
+  /// [InMemoryRecordsAndFindsSlackNodes].
+  final RecordsAndFindsSlackNodes? mirror;
 
   /// What to do with each [KickoffRecord] the receiver mints. Task 11 wires
   /// this to the agent-host client; in tests it's a list-appender.

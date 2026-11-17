@@ -403,7 +403,7 @@ void main() {
   group('round-trip through the receiver', () {
     test('a parsed SlackMessage writes to the mirror and emits wantsTurn',
         () {
-      final mirror = InMemorySlackMirror();
+      final mirror = InMemoryRecordsAndFindsSlackNodes();
       final selfActor =
           SlackActorId.forWorkspace(workspaceId: team, userId: 'UBOT');
       final receiver = SlackReceiver(mirror: mirror, selfActor: selfActor);

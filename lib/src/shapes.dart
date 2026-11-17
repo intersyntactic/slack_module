@@ -1,4 +1,5 @@
-/// The five Slack-anchored node shapes bound at the `slack_mirror` acceptor.
+/// The five Slack-anchored node shapes bound at the
+/// `records_and_finds_slack_nodes` acceptor.
 ///
 /// The mirror never drifts from what Slack sent (#1068 Q3): every Slack event
 /// produces exactly one node here. Four typed shapes cover the common cases;
@@ -16,9 +17,10 @@ library;
 
 import 'package:is_shapes/is_shapes.dart';
 
-/// The common type for every Slack-anchored node shape, so the `slack_mirror`
-/// acceptor can type-check offerings against something sharper than `Object`
-/// (per intersyntactic's module loader, slice 2).
+/// The common type for every Slack-anchored node shape, so the
+/// `records_and_finds_slack_nodes` acceptor can type-check offerings against
+/// something sharper than `Object` (per intersyntactic's module loader,
+/// slice 2).
 ///
 /// `sealed` so the five shapes below are the complete set; a sixth would break
 /// the acceptor's type check loudly rather than silently widen it.

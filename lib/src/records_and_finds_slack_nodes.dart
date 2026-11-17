@@ -29,7 +29,7 @@ import 'package:is_shapes/is_shapes.dart';
 import 'slack_thread.dart';
 import 'shapes.dart';
 
-abstract interface class SlackMirror {
+abstract interface class RecordsAndFindsSlackNodes {
   /// Records [node] under [path] and returns its minted [TurnId].
   TurnId write(SlackThread path, SlackNode node);
 
@@ -100,8 +100,9 @@ abstract interface class SlackMirror {
   SlackNode? nodeAt(TurnId id);
 }
 
-final class InMemorySlackMirror implements SlackMirror {
-  InMemorySlackMirror();
+final class InMemoryRecordsAndFindsSlackNodes
+    implements RecordsAndFindsSlackNodes {
+  InMemoryRecordsAndFindsSlackNodes();
 
   final Map<SlackThread, int> _epochs = {};
   final Map<TurnId, _Entry> _nodes = {};

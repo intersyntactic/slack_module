@@ -34,7 +34,7 @@ import 'package:is_shapes/is_shapes.dart';
 
 import 'slack_thread.dart';
 import 'shapes.dart';
-import 'slack_mirror.dart';
+import 'records_and_finds_slack_nodes.dart';
 
 /// A record the turn engine consumes to decide whether to run. [wantsTurn]
 /// is true for nodes that are inbound to the agent (mentions, messages,
@@ -83,7 +83,7 @@ final class WithdrawRecord {
 final class SlackReceiver {
   SlackReceiver({required this.mirror, required this.selfActor});
 
-  final SlackMirror mirror;
+  final RecordsAndFindsSlackNodes mirror;
 
   /// The [ActorId] this receiver writes as. Nodes authored by this actor are
   /// the agent's own replies (recorded write-ahead by `SlackReply`), so the
@@ -92,10 +92,10 @@ final class SlackReceiver {
 
   KickoffRecord receive(SlackThread path, SlackNode node) {
     // Checked before the write: content-identical nodes mint the same id
-    // (see SlackMirror.idFor), so a hit here means this exact node already
-    // arrived — Slack's app_mention + plain-message pair for one @-mention
-    // is the known case — and the turn it already kicked off must not be
-    // kicked off a second time.
+    // (see RecordsAndFindsSlackNodes.idFor), so a hit here means this exact
+    // node already arrived — Slack's app_mention + plain-message pair for
+    // one @-mention is the known case — and the turn it already kicked off
+    // must not be kicked off a second time.
     final alreadyMirrored = mirror.nodeAt(mirror.idFor(node)) != null;
     final id = mirror.write(path, node);
     return KickoffRecord(
@@ -108,7 +108,8 @@ final class SlackReceiver {
 
   /// Records a `Withdrawal<SlackReaction>` and emits the record the turn
   /// engine consumes. The withdrawal is written to the mirror's side table
-  /// (see [SlackMirror.writeWithdraw]) rather than appended to the chain.
+  /// (see [RecordsAndFindsSlackNodes.writeWithdraw]) rather than appended to
+  /// the chain.
   ///
   /// `wantsTurn` follows the same rule as [receive]: foreign authorship
   /// wakes a turn, self authorship does not. A user removing their own 🔄

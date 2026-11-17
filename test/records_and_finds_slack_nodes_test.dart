@@ -24,22 +24,22 @@ SlackMessage _msg({
     );
 
 void main() {
-  group('InMemorySlackMirror', () {
+  group('InMemoryRecordsAndFindsSlackNodes', () {
     test('nothing recorded before any write', () {
-      final m = InMemorySlackMirror();
+      final m = InMemoryRecordsAndFindsSlackNodes();
       expect(m.locate(_path().channel, '1730000000.000100'), isNull);
       expect(m.epochFor(_path()), 1);
     });
 
     test('write returns a TurnId and records it under the path', () {
-      final m = InMemorySlackMirror();
+      final m = InMemoryRecordsAndFindsSlackNodes();
       final id = m.write(_path(), _msg(ts: '1730000000.000100'));
       expect(m.pathOf(id), equals(_path()));
       expect(m.nodeAt(id), isNotNull);
     });
 
     test('two writes to the same path mint distinct ids', () {
-      final m = InMemorySlackMirror();
+      final m = InMemoryRecordsAndFindsSlackNodes();
       final a = m.write(_path(), _msg(ts: '1730000000.000100'));
       final b = m.write(_path(), _msg(ts: '1730000000.000200', text: 'again'));
       expect(a, isNot(equals(b)));
@@ -48,7 +48,7 @@ void main() {
     });
 
     test('two paths are independently tracked', () {
-      final m = InMemorySlackMirror();
+      final m = InMemoryRecordsAndFindsSlackNodes();
       final p1 = _path(channel: 'C01');
       final p2 = _path(channel: 'C02');
       final a = m.write(p1, _msg(ts: '1', channel: 'C01'));
@@ -59,8 +59,8 @@ void main() {
     });
 
     test('id is reproducible given the same node', () {
-      final m1 = InMemorySlackMirror();
-      final m2 = InMemorySlackMirror();
+      final m1 = InMemoryRecordsAndFindsSlackNodes();
+      final m2 = InMemoryRecordsAndFindsSlackNodes();
       final node = _msg(ts: '1730000000.000100');
       final id1 = m1.write(_path(), node);
       final id2 = m2.write(_path(), node);
@@ -68,7 +68,7 @@ void main() {
     });
 
     test('id changes with the node\'s own fields, not its path', () {
-      final m = InMemorySlackMirror();
+      final m = InMemoryRecordsAndFindsSlackNodes();
       final rootA = m.write(_path(), _msg(ts: 'root-a'));
       final rootB = m.write(_path(channel: 'C02'), _msg(ts: 'root-a', channel: 'C02'));
       // Same ts, but a different channel field → different content → different id.
@@ -76,20 +76,20 @@ void main() {
     });
 
     test('nodeAt returns the written node', () {
-      final m = InMemorySlackMirror();
+      final m = InMemoryRecordsAndFindsSlackNodes();
       final node = _msg(ts: 'x', text: 'hello');
       final id = m.write(_path(), node);
       expect(m.nodeAt(id), same(node));
     });
 
     test('nodeAt on an unknown id returns null', () {
-      final m = InMemorySlackMirror();
+      final m = InMemoryRecordsAndFindsSlackNodes();
       final fakeId = TurnId.parse('0' * 64)!;
       expect(m.nodeAt(fakeId), isNull);
     });
 
     test('locate finds a message by (channel, ts)', () {
-      final m = InMemorySlackMirror();
+      final m = InMemoryRecordsAndFindsSlackNodes();
       final id = m.write(_path(), _msg(ts: 'x-ts', channel: 'C01'));
       final hit = m.locate('C01', 'x-ts');
       expect(hit, isNotNull);
@@ -98,14 +98,14 @@ void main() {
     });
 
     test('locate misses when nothing was written at that (channel, ts)', () {
-      final m = InMemorySlackMirror();
+      final m = InMemoryRecordsAndFindsSlackNodes();
       m.write(_path(), _msg(ts: 'x-ts'));
       expect(m.locate('C01', 'other-ts'), isNull);
       expect(m.locate('C-other', 'x-ts'), isNull);
     });
 
     test('locate does not index SlackReaction (reactions have no channel)', () {
-      final m = InMemorySlackMirror();
+      final m = InMemoryRecordsAndFindsSlackNodes();
       final msgId = m.write(_path(), _msg(ts: 'msg-ts', channel: 'C01'));
       m.write(
         _path(),
@@ -121,7 +121,7 @@ void main() {
     });
 
     test('pathOf returns the mission a TurnId sits on', () {
-      final m = InMemorySlackMirror();
+      final m = InMemoryRecordsAndFindsSlackNodes();
       final p1 = _path(channel: 'C01');
       final p2 = _path(channel: 'C02');
       final a = m.write(p1, _msg(ts: '1', channel: 'C01'));
@@ -131,7 +131,7 @@ void main() {
     });
 
     test('findReaction matches on (target, emoji, by)', () {
-      final m = InMemorySlackMirror();
+      final m = InMemoryRecordsAndFindsSlackNodes();
       final msgId = m.write(_path(), _msg(ts: 'msg'));
       final alice = _actor('U-alice');
       final bob = _actor('U-bob');
@@ -150,7 +150,7 @@ void main() {
     });
 
     test('findReaction returns null when target is unknown', () {
-      final m = InMemorySlackMirror();
+      final m = InMemoryRecordsAndFindsSlackNodes();
       final fakeId = TurnId.parse('0' * 64)!;
       expect(
         m.findReaction(target: fakeId, emoji: 'x', by: _actor()),
@@ -159,7 +159,7 @@ void main() {
     });
 
     test('findReaction returns null when no matching reaction exists', () {
-      final m = InMemorySlackMirror();
+      final m = InMemoryRecordsAndFindsSlackNodes();
       final msgId = m.write(_path(), _msg(ts: 'msg'));
       expect(
         m.findReaction(target: msgId, emoji: 'nope', by: _actor()),
@@ -168,7 +168,7 @@ void main() {
     });
 
     test('writeWithdraw + withdrawnBy round-trips', () {
-      final m = InMemorySlackMirror();
+      final m = InMemoryRecordsAndFindsSlackNodes();
       final msgId = m.write(_path(), _msg(ts: 'msg'));
       final reactionId = m.write(
         _path(),
@@ -181,7 +181,7 @@ void main() {
     });
 
     test('each node shape writes successfully', () {
-      final m = InMemorySlackMirror();
+      final m = InMemoryRecordsAndFindsSlackNodes();
       final msgId = m.write(_path(), _msg(ts: '1'));
       final editId = m.write(
         _path(),
