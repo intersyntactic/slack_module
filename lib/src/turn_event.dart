@@ -1,6 +1,6 @@
 /// The sealed family a turn-engine sink consumes: a normalised view of an
 /// agent-host turn, factored so Slack's and Teams' sinks diverge only where
-/// their journey rules actually diverge.
+/// their mission rules actually diverge.
 ///
 /// Sibling of teams_module's TurnEvent family. Naming matches on purpose (per
 /// teams-module-e2's inventory, 2026-11-10): once both modules have shipped a
@@ -88,7 +88,7 @@ final class TurnWriting extends TurnEvent {
 
 /// A step within the turn finished. Carried separately from [TurnEnded] so
 /// a turn with multiple steps still ends exactly once. A fresh [TurnWriting]
-/// stream commonly starts after this — in ChatGPT-driven journeys, writing
+/// stream commonly starts after this — in ChatGPT-driven missions, writing
 /// a sentence before the first tool call is the typical case, not the edge
 /// (teams-module-e2, 2026-11-10). A sink that buffers `textSoFar` across
 /// steps will leak prior-step text into the next; reset the buffer here.

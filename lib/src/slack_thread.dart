@@ -1,22 +1,24 @@
-/// The compound key naming one externally-anchored journey on the Slack side:
+/// The compound key naming one externally-anchored mission on the Slack side:
 /// a thread, keyed by `(workspace, channel, threadTs)`.
 ///
-/// Per docs/externally-anchored-journey-paths.md §4.1 and the RULINGS grain:
-/// a *journey* holds journey paths, and a thread can hold more than one
-/// (edit-fork in §4.1 preserves the old answer PATH as a branch while the new
-/// one takes the head). The thread itself — the externally-anchored tuple — is
-/// the journey; individual paths within it are the host's opaque
-/// `JourneyPathId`s (formerly `RunId`s), tracked by the binding store.
+/// Per docs/externally-anchored-trajectories.md §4.1 and the RULINGS grain:
+/// a *mission* holds trajectories, and a thread can hold more than one
+/// (edit-fork in §4.1 preserves the old answer TRAJECTORY as a branch while
+/// the new one takes the head). The thread itself — the externally-anchored
+/// tuple — is the mission; individual trajectories within it are the host's
+/// opaque `TrajectoryId`s (formerly `RunId`s), tracked by the binding store.
 ///
-/// Named `SlackThread`, not `JourneyId`, because the protocol now has its own
-/// `JourneyId` (landed in intersyntactic PR 1126) — this type names a Slack
-/// thread, which happens to anchor a journey, not the journey itself.
+/// Named `SlackThread`, not `MissionId`, because the protocol now has its own
+/// `MissionId` (landed in intersyntactic PR 1126 as `JourneyId`, renamed in
+/// is_shapes 0.5.0) — this type names a Slack thread, which happens to anchor
+/// a mission, not the mission itself.
 ///
 /// The Teams side does not have a keyed equivalent yet — it uses a linear
-/// stand-in with no key at all (see teams_module's `stand_in_journey_path.dart`).
+/// stand-in with no key at all (see teams_module's `stand_in_journey_path.dart`,
+/// not yet renamed there as of this writing).
 /// Keeping this as a value type (not a String) so a channel id and a thread_ts
 /// can't be mistakenly swapped, and so the Dart analyzer refuses
-/// `find(channel, ts)` where a full journey is expected.
+/// `find(channel, ts)` where a full mission is expected.
 library;
 
 final class SlackThread {

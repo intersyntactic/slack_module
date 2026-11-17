@@ -112,7 +112,7 @@ void main() {
       expect(m.text, 'hello');
       expect(m.by.toString(), 'slack:$team/$user');
       // Top-level mention: rawThreadTs is null, so SlackMessage.threadTs is
-      // null. The journey-path anchor equals the message's own ts.
+      // null. The mission anchor equals the message's own ts.
       expect(m.threadTs, isNull);
     });
 

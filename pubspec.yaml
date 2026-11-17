@@ -1,7 +1,7 @@
 name: is_slack_module
 description: >
   A Slack adapter for intersyntactic. Mentions and threads in Slack become
-  turns of a journey on an intersyntactic agent, with any model the sender
+  turns of a mission on an intersyntactic agent, with any model the sender
   has credentials for. Follows intersyntactic's "modules live in their own
   repos" shape: this package depends on intersyntactic's public packages,
   not the other way around.
@@ -12,7 +12,7 @@ environment:
   sdk: ^3.13.0
 
 dependencies:
-  is_shapes: ^0.4.0
+  is_shapes: ^0.5.0
   is_slack_relay: ^0.2.0
 
 dev_dependencies:

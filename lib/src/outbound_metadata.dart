@@ -2,8 +2,8 @@
 /// posts, and the reader that inbound parsing uses to recognise its own
 /// posts and to spot a zombie receiver's.
 ///
-/// Per docs/externally-anchored-journey-paths.md §8.6: a message a receiver
-/// posts carries `(journey_path, epoch)` in Slack's `metadata` field. A
+/// Per docs/externally-anchored-trajectories.md §8.6: a message a receiver
+/// posts carries `(trajectory, epoch)` in Slack's `metadata` field. A
 /// different receiver reading the event back can ask three questions in
 /// order:
 ///
