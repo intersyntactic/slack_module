@@ -78,7 +78,7 @@ void main() {
     test('a correctly signed app_mention is 200 and mirrors + kicks off',
         () async {
       final at = DateTime.utc(2026, 10, 23, 12, 0, 0);
-      final mirror = InMemorySlackMirror();
+      final mirror = InMemoryRecordsAndFindsSlackNodes();
       final kickoffs = <KickoffRecord>[];
       final dispatched = Completer<void>();
       final bot = SlackBot(
@@ -137,7 +137,7 @@ void main() {
       final bot = SlackBot(
         spec: const SlackSourceSpec(signingSecret: secret),
         now: () => at,
-        mirror: InMemorySlackMirror(),
+        mirror: InMemoryRecordsAndFindsSlackNodes(),
         onKickoff: kickoffs.add,
       );
       final base = await _serve(bot);
@@ -169,7 +169,7 @@ void main() {
           teamIdAllowlist: const {team},
         ),
         now: () => at,
-        mirror: InMemorySlackMirror(),
+        mirror: InMemoryRecordsAndFindsSlackNodes(),
         onKickoff: kickoffs.add,
       );
       final base = await _serve(bot);
@@ -204,7 +204,7 @@ void main() {
     test('an edit resolves its prior turn via the mirror and mints SlackEdit',
         () async {
       final at = DateTime.utc(2026, 10, 23, 12, 0, 0);
-      final mirror = InMemorySlackMirror();
+      final mirror = InMemoryRecordsAndFindsSlackNodes();
       final kickoffs = <KickoffRecord>[];
       final bot = SlackBot(
         spec: SlackSourceSpec(

@@ -7,7 +7,7 @@
 /// were trimmed per "tests prove once" (Nick, 2026-11-14, narrow reading):
 /// they didn't prove a specific bug stays fixed, and they weren't guarding
 /// a decision or invariant either — every other test that constructs these
-/// shapes (gate_parser_test.dart, slack_mirror_test.dart,
+/// shapes (gate_parser_test.dart, records_and_finds_slack_nodes_test.dart,
 /// slack_receiver_test.dart) already exercises the same constructors.
 ///
 /// The analyzer-level tests (that `Withdrawal<SlackReaction>` can't be assigned

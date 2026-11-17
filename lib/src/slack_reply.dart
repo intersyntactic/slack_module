@@ -6,8 +6,8 @@
 /// same thread could both see "no reply yet", both call Slack, and the
 /// mirror would show only the one that called `postMessage` first. Writing
 /// to the mirror first turns the race into a one-head CAS at the mirror
-/// (future `SlackMirror.writeIfHead` — not yet implemented; the in-memory
-/// mirror is single-writer).
+/// (future `RecordsAndFindsSlackNodes.writeIfHead` — not yet implemented; the
+/// in-memory mirror is single-writer).
 ///
 /// Nick's choice on post-failure (confirmed 2026-11-10): the mirror node
 /// stays. Rationale — the intent is a fact, and the failure is another fact,
@@ -23,7 +23,7 @@ import 'slack_thread.dart';
 import 'outbound_metadata.dart';
 import 'shapes.dart';
 import 'slack_client.dart';
-import 'slack_mirror.dart';
+import 'records_and_finds_slack_nodes.dart';
 
 /// What the reply path returns. [postedTs] is the Slack `ts` the message
 /// landed at; null when Slack refused the post (see [error]). Either way
@@ -55,7 +55,7 @@ final class SlackReply {
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now;
 
-  final SlackMirror mirror;
+  final RecordsAndFindsSlackNodes mirror;
   final SlackClient client;
 
   /// The agent's own [ActorId], used as `by` on every mirrored outbound

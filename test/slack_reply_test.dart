@@ -52,7 +52,7 @@ DateTime _fixedNow() => DateTime.utc(2026, 11, 10, 10, 0, 0);
 void main() {
   group('SlackReply', () {
     test('write-ahead: mirror has the node before Slack is called', () async {
-      final mirror = InMemorySlackMirror();
+      final mirror = InMemoryRecordsAndFindsSlackNodes();
       final sender = _FakeSender()..respondPostOk('1762790400.000000');
       final client = SlackClient(token: 'xoxb', sender: sender.send);
       final reply = SlackReply(
@@ -74,7 +74,7 @@ void main() {
     });
 
     test('Slack failure leaves the mirror node in place', () async {
-      final mirror = InMemorySlackMirror();
+      final mirror = InMemoryRecordsAndFindsSlackNodes();
       final sender = _FakeSender()..respondError('channel_not_found');
       final client = SlackClient(token: 'xoxb', sender: sender.send);
       final reply = SlackReply(
@@ -96,7 +96,7 @@ void main() {
     });
 
     test('chat.postMessage is called with path channel + thread_ts', () async {
-      final mirror = InMemorySlackMirror();
+      final mirror = InMemoryRecordsAndFindsSlackNodes();
       final sender = _FakeSender()..respondPostOk('1.0');
       final client = SlackClient(token: 'xoxb', sender: sender.send);
       final reply = SlackReply(
@@ -116,7 +116,7 @@ void main() {
     });
 
     test('epoch flows through to the outcome', () async {
-      final mirror = InMemorySlackMirror();
+      final mirror = InMemoryRecordsAndFindsSlackNodes();
       final sender = _FakeSender()..respondPostOk('1.0');
       final client = SlackClient(token: 'xoxb', sender: sender.send);
       final reply = SlackReply(
@@ -132,7 +132,7 @@ void main() {
 
     test('outbound message is stamped with (path, epoch) metadata (§8.6)',
         () async {
-      final mirror = InMemorySlackMirror();
+      final mirror = InMemoryRecordsAndFindsSlackNodes();
       final sender = _FakeSender()..respondPostOk('1.0');
       final client = SlackClient(token: 'xoxb', sender: sender.send);
       final reply = SlackReply(

@@ -15,11 +15,11 @@ final _human = SlackActorId.forWorkspace(
 
 void main() {
   group('SlackReceiver', () {
-    late InMemorySlackMirror mirror;
+    late InMemoryRecordsAndFindsSlackNodes mirror;
     late SlackReceiver receiver;
 
     setUp(() {
-      mirror = InMemorySlackMirror();
+      mirror = InMemoryRecordsAndFindsSlackNodes();
       receiver = SlackReceiver(mirror: mirror, selfActor: _self);
     });
 
