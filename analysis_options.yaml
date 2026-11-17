@@ -1,5 +1,23 @@
 include: package:lints/recommended.yaml
 
+plugins:
+  is_lint_rules:
+    version: ^0.1.0
+    diagnostics:
+      # Off for now: 10 findings (no_dynamic) and 14 (no_cast_from_untyped),
+      # all in slack_client.dart and gate_parser.dart's reading of Slack's
+      # wire JSON, none in test/. Fixing them means introducing a JsonObject
+      # reader (or pattern-matching) through both files' JSON narrowing,
+      # which is real wire-parsing surgery, not a small finding — worth its
+      # own reviewed PR rather than riding along with turning the plugin on.
+      no_dynamic: false
+      no_cast_from_untyped: false
+      no_default_on_closed_type: true
+      no_ignore_comment: true
+      no_json_object_check: true
+      no_string_literal_compare: true
+      no_visible_for_testing: true
+
 analyzer:
   language:
     strict-casts: true

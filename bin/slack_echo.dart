@@ -95,6 +95,7 @@ Future<void> main() async {
 /// indistinguishable at the typed level, so an echo bot that didn't check
 /// this would echo its own echo, forever.
 bool fromBot(relay.SlackMessage message) =>
+    // wire-ok: Slack's own subtype value, not a closed set this module owns.
     message.subtype == 'bot_message' || message.rawEvent['bot_id'] != null;
 
 /// Answers through the Slack Web API, deduped against Slack's own habit of
