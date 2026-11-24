@@ -17,7 +17,7 @@ dependencies:
   is_docking_station_api: ^0.4.0
   is_logbook_client: ^0.3.0
   is_shapes: ^0.6.0
-  is_slack_relay: ^0.3.0
+  is_slack_relay: ^0.3.1
 
 dev_dependencies:
   is_content_id: ^0.2.0

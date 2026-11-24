@@ -213,10 +213,10 @@ packages:
     dependency: "direct main"
     description:
       name: is_slack_relay
-      sha256: "04101f1cf1304f9c231c60f89620a3a3baa736cfcb1c8476f63c0fb36916bb9d"
+      sha256: bc847e09f968f4643a8312186482ab06a261ff28de2830e75d4c269465ae54c4
       url: "https://pub.dev"
     source: hosted
-    version: "0.3.0"
+    version: "0.3.1"
   is_web_address_vocabulary:
     dependency: transitive
     description:
