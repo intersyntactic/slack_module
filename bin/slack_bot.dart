@@ -161,9 +161,8 @@ class SlackBot {
 
   final SlackSourceSpec spec;
 
-  /// Where the relay records each accepted event before answering Slack;
-  /// null records nothing.
-  final relay.WritesLogbookEntry? record;
+  /// Where the relay records each accepted event before answering Slack.
+  final relay.WritesLogbookEntry record;
 
   /// The thread mirror. If null, the bot ACKs and logs but does not parse
   /// or record. Populated in `main` with an

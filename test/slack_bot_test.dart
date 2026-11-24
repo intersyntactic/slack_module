@@ -1,11 +1,19 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:is_content_id/is_content_id.dart' show ObjectId;
+import 'package:is_logbook_client/is_logbook_client.dart'
+    show WriteResult, Written;
 import 'package:is_slack_module/is_slack_module.dart';
 import 'package:test/test.dart';
 
 import '../bin/slack_bot.dart';
+
+/// A logbook that records every entry it is sent.
+Future<WriteResult> recordAll(Object? _, List<int> body) async =>
+    Written(ObjectId.of(Uint8List.fromList(body)));
 
 const secret = 'correct horse battery staple';
 const team = 'T123';
@@ -52,8 +60,8 @@ void main() {
     test('url_verification echoes the challenge', () async {
       final at = DateTime.utc(2026, 10, 23, 12, 0, 0);
       final bot = SlackBot(
-        record: null,
-        spec:const SlackSourceSpec(signingSecret: secret),
+        record: recordAll,
+        spec: const SlackSourceSpec(signingSecret: secret),
         now: () => at,
       );
       final base = await _serve(bot);
@@ -83,8 +91,8 @@ void main() {
       final kickoffs = <KickoffRecord>[];
       final dispatched = Completer<void>();
       final bot = SlackBot(
-        record: null,
-        spec:SlackSourceSpec(
+        record: recordAll,
+        spec: SlackSourceSpec(
           signingSecret: secret,
           teamIdAllowlist: const {team},
         ),
@@ -137,8 +145,8 @@ void main() {
       final at = DateTime.utc(2026, 10, 23, 12, 0, 0);
       final kickoffs = <KickoffRecord>[];
       final bot = SlackBot(
-        record: null,
-        spec:const SlackSourceSpec(signingSecret: secret),
+        record: recordAll,
+        spec: const SlackSourceSpec(signingSecret: secret),
         now: () => at,
         mirror: InMemoryRecordsAndFindsSlackNodes(),
         onKickoff: kickoffs.add,
@@ -167,8 +175,8 @@ void main() {
       final at = DateTime.utc(2026, 10, 23, 12, 0, 0);
       final kickoffs = <KickoffRecord>[];
       final bot = SlackBot(
-        record: null,
-        spec:SlackSourceSpec(
+        record: recordAll,
+        spec: SlackSourceSpec(
           signingSecret: secret,
           teamIdAllowlist: const {team},
         ),
@@ -211,8 +219,8 @@ void main() {
       final mirror = InMemoryRecordsAndFindsSlackNodes();
       final kickoffs = <KickoffRecord>[];
       final bot = SlackBot(
-        record: null,
-        spec:SlackSourceSpec(
+        record: recordAll,
+        spec: SlackSourceSpec(
           signingSecret: secret,
           teamIdAllowlist: const {team},
         ),
@@ -288,7 +296,7 @@ void main() {
 
     test('a path other than /webhook/slack is 404', () async {
       final bot = SlackBot(
-        record: null,
+        record: recordAll,
         spec: const SlackSourceSpec(signingSecret: secret),
       );
       final base = await _serve(bot);

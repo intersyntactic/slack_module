@@ -27,14 +27,17 @@ final slackEventSource = RelayedEventSource.parse('slack')!;
 ///   it can be a verdict. A bot's message when Slack named no user it was
 ///   delivered for is [NothingToAdmit] too: it may be ours, and admitting
 ///   our own replies would feed the agent its own words.
-/// - ✅ or ✔️ on our bot's message is [ShownMessageJudged] approved; ❌ is
-///   held off. Any other reaction, a reaction removed, an edit, a delete and
-///   a slash command are [NothingToAdmit] for now.
+/// - ✅ or ✔️ on our bot's message, from anyone but our bot, is
+///   [ShownMessageJudged] approved; ❌ is held off. Our bot's own reaction,
+///   such as one it seeds for people to click, is no verdict. Any other
+///   reaction, a reaction removed, an edit, a delete and a slash command are
+///   [NothingToAdmit] for now.
 ///
-/// Addresses: in a channel each thread is its own address,
+/// Addresses: in a channel or a group DM each thread is its own address,
 /// `slack:<channel>/<thread ts>`, sitting inside the channel's,
-/// `slack:<channel>`. A DM is one address, `slack:<channel>`, inside none.
-/// Channel ids are global in Slack, so no workspace is in an address.
+/// `slack:<channel>`. A DM with one person is one address, `slack:<channel>`,
+/// inside none. Channel ids are global in Slack, so no workspace is in an
+/// address.
 ///
 /// [AddressedEvent.replyEndpoint] is null: Slack's `chat.postMessage` names
 /// the channel in its body, so no address prefix can hold a reply to one
@@ -82,7 +85,10 @@ final class SlackEventTranslator
           }
           final source = SourceMessageId.parse('${event.channel}|$ts');
           final key = EventKey.parse('message:$ts');
-          final text = _withoutLeadingMention(event.text ?? '');
+          final text = _withoutMentionOf(
+            event.deliveredForUser,
+            event.text ?? '',
+          );
           if (source == null || key == null || text.isEmpty) return null;
           return MessageSaid(
             addressInExternalSystem: place.address,
@@ -105,7 +111,16 @@ final class SlackEventTranslator
         final key = EventKey.parse(
           'reaction:${event.targetTs}:${event.user}:${event.eventTs}',
         );
-        if (shown == null || verdict == null || to == null || key == null) {
+        final byOurBot = switch (event.deliveredForUser) {
+          final bot? => event.user == bot,
+          // No one named the delivery's recipient, so it may be ours.
+          null => true,
+        };
+        if (byOurBot ||
+            shown == null ||
+            verdict == null ||
+            to == null ||
+            key == null) {
           return null;
         }
         return ShownMessageJudged(
@@ -172,9 +187,15 @@ final class SlackEventTranslator
         ),
       };
 
-  /// Text without the mention that addressed it, `<@U…>` at the start.
-  static String _withoutLeadingMention(String text) =>
-      text.replaceFirst(RegExp(r'^\s*<@[UW][A-Z0-9]+>\s*'), '').trim();
+  /// [text] without [bot]'s mention at its start, `<@U…>` or `<@U…|name>`.
+  /// Anyone else's mention stays: it says who the message is for.
+  static String _withoutMentionOf(String? bot, String text) => switch (bot) {
+    final bot? => text.replaceFirst(
+      RegExp('^\\s*<@${RegExp.escape(bot)}(\\|[^>]*)?>\\s*'),
+      '',
+    ),
+    null => text,
+  }.trim();
 }
 
 /// Who sent a message: our own bot, a bot that may be ours, or someone
@@ -184,9 +205,10 @@ sealed class _SlackSender {
 
   static _SlackSender? of(relay.SlackMessage m) {
     final (user, bot, ours) = (m.user, m.botId, m.deliveredForUser);
+    // Before the bot id: our bot's post is ours whether Slack sent one.
+    if (ours != null && user == ours) return const _OurBot();
     if (bot == null) return user == null ? null : _OtherSender(user);
     if (ours == null) return const _MaybeOurBot();
-    if (user == ours) return const _OurBot();
     // A webhook post names no user; its bot id is all there is.
     return _OtherSender(user ?? bot);
   }
@@ -235,15 +257,14 @@ final class _SlackPlace {
   final AddressInExternalSystem address;
   final AddressInExternalSystem? containing;
 
-  /// A DM is one address; anywhere else each thread is one, inside its
-  /// channel. An `app_mention` names no channel type, and is never in a DM
-  /// with one person, whose messages come as `message.im`, so it is read
-  /// as a channel's.
+  /// A DM with one person is one address; anywhere else, a group DM
+  /// included, each thread is one, inside its channel. An `app_mention`
+  /// names no channel type, and is never in a DM with one person, so it is
+  /// placed as its `message` copy is, wherever else it was sent.
   static _SlackPlace? of(relay.SlackMessage m) {
     final channel = AddressInExternalSystem.parse('slack:${m.channel}');
     if (channel == null) return null;
-    if (m.channelType
-        case relay.SlackChannelType.im || relay.SlackChannelType.mpim) {
+    if (m.channelType == relay.SlackChannelType.im) {
       return _SlackPlace(channel, null);
     }
     final thread = AddressInExternalSystem.parse(
