@@ -21,8 +21,8 @@ class _RecordingSender {
 }
 
 relay.SlackMessage _message({
-  String? subtype,
-  Map<String, dynamic> rawEvent = const {},
+  relay.SlackMessageSubtype? subtype,
+  String? botId,
   bool mention = false,
   String eventTs = '1700000000.000100',
 }) =>
@@ -34,7 +34,7 @@ relay.SlackMessage _message({
       text: 'hello',
       eventTs: eventTs,
       subtype: subtype,
-      rawEvent: rawEvent,
+      botId: botId,
     );
 
 void main() {
@@ -43,11 +43,14 @@ void main() {
   });
 
   test('a message carrying bot_id is from a bot', () {
-    expect(fromBot(_message(rawEvent: {'bot_id': 'B123'})), isTrue);
+    expect(fromBot(_message(botId: 'B123')), isTrue);
   });
 
   test('a bot_message subtype is from a bot even without bot_id', () {
-    expect(fromBot(_message(subtype: 'bot_message')), isTrue);
+    expect(
+      fromBot(_message(subtype: relay.SlackMessageSubtype.botMessage)),
+      isTrue,
+    );
   });
 
   group('Answerer', () {

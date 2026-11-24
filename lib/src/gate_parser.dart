@@ -112,15 +112,16 @@ typedef SlackReactionFinder = TurnId? Function({
     );
   }
 
-  if (subtype == 'message_changed') {
+  if (subtype == relay.SlackMessageSubtype.messageChanged) {
     // event.message is the new state; event.previous_message is the prior.
     // The *edit's* actor and ts live on event.message (Slack puts the editor
     // under message.edited.user for API callers, but the event.message's own
     // `user`/`ts` always match the current state, which is what we record).
     final message = raw['message'];
-    final previousTs =
-        (raw['previous_message'] is Map ? raw['previous_message']['ts'] : null)
-            as String?;
+    final previousTs = switch (raw) {
+      {'previous_message': {'ts': final String ts}} => ts,
+      _ => null,
+    };
     if (message is! Map ||
         previousTs == null ||
         message['user'] is! String ||
@@ -149,14 +150,15 @@ typedef SlackReactionFinder = TurnId? Function({
     );
   }
 
-  if (subtype == 'message_deleted') {
+  if (subtype == relay.SlackMessageSubtype.messageDeleted) {
     // Slack puts the deletor at the top level (`event.user`) when available;
     // the gone message's ts is at `event.deleted_ts` or `event.previous_message.ts`.
     final deletorId = event.user;
-    final deletedTs = raw['deleted_ts'] as String? ??
-        ((raw['previous_message'] is Map
-            ? raw['previous_message']['ts']
-            : null) as String?);
+    final deletedTs = switch (raw) {
+      {'deleted_ts': final String ts} => ts,
+      {'previous_message': {'ts': final String ts}} => ts,
+      _ => null,
+    };
     final eventTs = event.eventTs;
     if (deletorId == null || deletedTs == null || eventTs == null) {
       return (path, _raw(raw, channel, anchor, workspace, userId: deletorId));

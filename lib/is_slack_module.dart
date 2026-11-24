@@ -21,6 +21,7 @@ export 'src/outbound_metadata.dart';
 export 'src/shapes.dart';
 export 'src/slack_actor_id.dart';
 export 'src/slack_client.dart';
+export 'src/slack_event_translator.dart';
 export 'src/records_and_finds_slack_nodes.dart';
 export 'src/slack_receiver.dart';
 export 'src/slack_reply.dart';
