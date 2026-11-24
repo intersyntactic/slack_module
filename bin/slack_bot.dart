@@ -8,6 +8,9 @@
 ///   SLACK_BOT_TOKEN=xoxb-...        required so the handler can call the Slack
 ///                                   Web API; read but not used until the
 ///                                   handler lands
+///   LOGBOOK_SOCKET=/path            the logbook writer's Unix socket; every
+///                                   accepted event is recorded there before
+///                                   Slack is answered
 ///   PORT=8086                       optional; a non-port aborts
 ///   HOST=127.0.0.1                  optional; the address to bind. The default
 ///                                   is loopback, for a proxy on the same
@@ -21,6 +24,7 @@ library;
 import 'dart:async';
 import 'dart:io';
 
+import 'package:is_logbook_client/is_logbook_client.dart' show LogbookWriter;
 import 'package:is_slack_module/is_slack_module.dart';
 import 'package:is_slack_relay/is_slack_relay.dart' as relay;
 import 'package:is_shapes/is_shapes.dart';
@@ -54,6 +58,14 @@ Future<void> main() async {
     );
   }
 
+  final logbookSocket = env['LOGBOOK_SOCKET'] ?? '';
+  if (logbookSocket.isEmpty) {
+    // Refuse to start rather than answer Slack 200 for events recorded
+    // nowhere.
+    stderr.writeln('abort: LOGBOOK_SOCKET not set');
+    exit(78);
+  }
+
   final rawPort = env['PORT'];
   final port = rawPort == null || rawPort.isEmpty ? 8086 : int.tryParse(rawPort);
   if (port == null || port < 1 || port > 65535) {
@@ -78,6 +90,7 @@ Future<void> main() async {
   // onKickoff logs; task 11 replaces it with the agent-host client.
   final bot = SlackBot(
     spec: spec,
+    record: LogbookWriter(logbookSocket).write,
     mirror: InMemoryRecordsAndFindsSlackNodes(),
     onKickoff: (r) => stderr.writeln(
       'slack bot: kickoff ${r.mirroredAs} path=${r.path.channel}/${r.path.threadTs} '
@@ -117,6 +130,7 @@ Future<void> main() async {
 class SlackBot {
   SlackBot({
     required this.spec,
+    required this.record,
     this.mirror,
     ActorId? selfActor,
     this.onKickoff,
@@ -138,6 +152,7 @@ class SlackBot {
     _relay = relay.SlackRelay(
       spec: spec,
       onEvent: _dispatch,
+      record: record,
       now: now,
       bodyTimeout: bodyTimeout,
       log: log,
@@ -145,6 +160,10 @@ class SlackBot {
   }
 
   final SlackSourceSpec spec;
+
+  /// Where the relay records each accepted event before answering Slack;
+  /// null records nothing.
+  final relay.WritesLogbookEntry? record;
 
   /// The thread mirror. If null, the bot ACKs and logs but does not parse
   /// or record. Populated in `main` with an

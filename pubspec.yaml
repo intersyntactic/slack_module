@@ -12,9 +12,14 @@ environment:
   sdk: ^3.13.0
 
 dependencies:
-  is_shapes: ^0.5.0
-  is_slack_relay: ^0.2.0
+  is_annotation_shapes: ^0.3.2
+  is_conversation_shapes: ^0.8.3
+  is_docking_station_api: ^0.4.0
+  is_logbook_client: ^0.3.0
+  is_shapes: ^0.6.0
+  is_slack_relay: ^0.3.0
 
 dev_dependencies:
+  is_content_id: ^0.2.0
   lints: ^6.1.0
   test: ^1.25.0

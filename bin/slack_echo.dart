@@ -75,6 +75,8 @@ Future<void> main() async {
       teamIdAllowlist: allow,
     ),
     onEvent: answerer.answer,
+    // The echo bot feeds no logbook.
+    record: null,
   );
 
   final server = await HttpServer.bind(address, port);
@@ -95,8 +97,8 @@ Future<void> main() async {
 /// indistinguishable at the typed level, so an echo bot that didn't check
 /// this would echo its own echo, forever.
 bool fromBot(relay.SlackMessage message) =>
-    // wire-ok: Slack's own subtype value, not a closed set this module owns.
-    message.subtype == 'bot_message' || message.rawEvent['bot_id'] != null;
+    message.subtype == relay.SlackMessageSubtype.botMessage ||
+    message.botId != null;
 
 /// Answers through the Slack Web API, deduped against Slack's own habit of
 /// delivering an @-mentioned post twice: once as `app_mention`, once as a

@@ -41,6 +41,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.2"
+  checked_json:
+    dependency: transitive
+    description:
+      name: checked_json
+      sha256: "6e98ee4c293ee7ed5d1a76411823c7b43aee1fa969b63cb896c519814dbdcfbf"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.1"
   cli_config:
     dependency: transitive
     description:
@@ -145,30 +153,78 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.0"
+  is_annotation_shapes:
+    dependency: "direct main"
+    description:
+      name: is_annotation_shapes
+      sha256: eaba8ab69040d0612d12bbec7315b567015d4369dd19c91c2b4dd14223c7a2f5
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.2"
   is_content_id:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: is_content_id
       sha256: "40381247bf99e093eab9951d070ab2b416e526a9639ec85f80179ee26ef35e12"
       url: "https://pub.dev"
     source: hosted
     version: "0.2.0"
+  is_conversation_shapes:
+    dependency: "direct main"
+    description:
+      name: is_conversation_shapes
+      sha256: "9cc49a7f1bf6ddb077a86516533b706b6c2ac08856b036a7cfcec67286ba09c1"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.8.3"
+  is_docking_station_api:
+    dependency: "direct main"
+    description:
+      name: is_docking_station_api
+      sha256: cf10508402a18f108db6dffe132852d2d5e3eb6fe0562aef6cddd7d039bc8c79
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.4.0"
+  is_logbook_client:
+    dependency: "direct main"
+    description:
+      name: is_logbook_client
+      sha256: aff53c968e53c1b707305adeb212bd700ca0c231fa1caee4774b5db52f8cc4b0
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.0"
+  is_logbook_format:
+    dependency: transitive
+    description:
+      name: is_logbook_format
+      sha256: "5ec58c64f526653f1447d3cde7266d2d0b5d083fccaf0362f0de8effab611747"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.0"
   is_shapes:
     dependency: "direct main"
     description:
       name: is_shapes
-      sha256: "0c589d832c1386014c076452d6a3ff91799cb5cf322474ce4c65d4a552183e51"
+      sha256: aa5d5f37840ab8a09517bcf7313418bdb6ffab2dea29b3ac06d2e95875f8c2e8
       url: "https://pub.dev"
     source: hosted
-    version: "0.5.0"
+    version: "0.6.0"
   is_slack_relay:
     dependency: "direct main"
     description:
       name: is_slack_relay
-      sha256: "33d76861645f9b9eacff3b8c54c176932f42eb846e9393d5101d47c7ea8c51f1"
+      sha256: "04101f1cf1304f9c231c60f89620a3a3baa736cfcb1c8476f63c0fb36916bb9d"
       url: "https://pub.dev"
     source: hosted
-    version: "0.2.0"
+    version: "0.3.0"
+  is_web_address_vocabulary:
+    dependency: transitive
+    description:
+      name: is_web_address_vocabulary
+      sha256: "232241a06a2871213e110f52f01c8c68b6c98fdcdf00fcfb491c8e24d10d8dac"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.1"
   lints:
     dependency: "direct dev"
     description:

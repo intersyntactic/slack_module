@@ -46,7 +46,7 @@ relay.SlackMessage editEvent({
       channel: channel,
       threadTs: anchor,
       eventTs: editTs,
-      subtype: 'message_changed',
+      subtype: relay.SlackMessageSubtype.messageChanged,
       rawEvent: {
         'type': 'message',
         'subtype': 'message_changed',
@@ -78,7 +78,7 @@ relay.SlackMessage deleteEvent({
       threadTs: anchor,
       user: user,
       eventTs: deleteTs,
-      subtype: 'message_deleted',
+      subtype: relay.SlackMessageSubtype.messageDeleted,
       rawEvent: {
         'type': 'message',
         'subtype': 'message_deleted',
@@ -216,7 +216,7 @@ void main() {
         'a message_deleted missing both deleted_ts and previous_message falls '
         'back to SlackEventRaw', () {
       final d = deleteEvent();
-      final raw = Map<String, dynamic>.from(d.rawEvent);
+      final raw = Map<String, Object?>.from(d.rawEvent);
       raw.remove('deleted_ts');
       raw.remove('previous_message');
       final stripped = relay.SlackMessage(
@@ -246,7 +246,7 @@ void main() {
         user: event.user,
         text: event.text,
         eventTs: event.eventTs,
-        subtype: 'thread_broadcast', // real but unhandled
+        subtype: relay.SlackMessageSubtype.threadBroadcast, // real but unhandled
         rawEvent: event.rawEvent,
       );
       final (_, node) = parseMessageToSlackNode(broadcast);

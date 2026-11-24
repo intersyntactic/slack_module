@@ -52,7 +52,8 @@ void main() {
     test('url_verification echoes the challenge', () async {
       final at = DateTime.utc(2026, 10, 23, 12, 0, 0);
       final bot = SlackBot(
-        spec: const SlackSourceSpec(signingSecret: secret),
+        record: null,
+        spec:const SlackSourceSpec(signingSecret: secret),
         now: () => at,
       );
       final base = await _serve(bot);
@@ -82,7 +83,8 @@ void main() {
       final kickoffs = <KickoffRecord>[];
       final dispatched = Completer<void>();
       final bot = SlackBot(
-        spec: SlackSourceSpec(
+        record: null,
+        spec:SlackSourceSpec(
           signingSecret: secret,
           teamIdAllowlist: const {team},
         ),
@@ -135,7 +137,8 @@ void main() {
       final at = DateTime.utc(2026, 10, 23, 12, 0, 0);
       final kickoffs = <KickoffRecord>[];
       final bot = SlackBot(
-        spec: const SlackSourceSpec(signingSecret: secret),
+        record: null,
+        spec:const SlackSourceSpec(signingSecret: secret),
         now: () => at,
         mirror: InMemoryRecordsAndFindsSlackNodes(),
         onKickoff: kickoffs.add,
@@ -164,7 +167,8 @@ void main() {
       final at = DateTime.utc(2026, 10, 23, 12, 0, 0);
       final kickoffs = <KickoffRecord>[];
       final bot = SlackBot(
-        spec: SlackSourceSpec(
+        record: null,
+        spec:SlackSourceSpec(
           signingSecret: secret,
           teamIdAllowlist: const {team},
         ),
@@ -207,7 +211,8 @@ void main() {
       final mirror = InMemoryRecordsAndFindsSlackNodes();
       final kickoffs = <KickoffRecord>[];
       final bot = SlackBot(
-        spec: SlackSourceSpec(
+        record: null,
+        spec:SlackSourceSpec(
           signingSecret: secret,
           teamIdAllowlist: const {team},
         ),
@@ -282,7 +287,10 @@ void main() {
     });
 
     test('a path other than /webhook/slack is 404', () async {
-      final bot = SlackBot(spec: const SlackSourceSpec(signingSecret: secret));
+      final bot = SlackBot(
+        record: null,
+        spec: const SlackSourceSpec(signingSecret: secret),
+      );
       final base = await _serve(bot);
       final res = await _post(
         base,
