@@ -28,16 +28,3 @@ dev_dependencies:
   is_content_id: ^0.2.0
   lints: ^6.1.0
   test: ^1.25.0
-
-# Until is_effects 0.17.0 (https://github.com/intersyntactic/effects/pull/35)
-# and is_reply_requests_api 0.1.0
-# (https://github.com/intersyntactic/reply_requests_api/pull/1) are on pub.dev.
-dependency_overrides:
-  is_effects:
-    git:
-      url: https://github.com/intersyntactic/effects.git
-      ref: drop-reply-drivers
-  is_reply_requests_api:
-    git:
-      url: https://github.com/intersyntactic/reply_requests_api.git
-      ref: 2f7b981

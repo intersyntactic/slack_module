@@ -188,11 +188,10 @@ packages:
   is_effects:
     dependency: "direct main"
     description:
-      path: "."
-      ref: drop-reply-drivers
-      resolved-ref: "63369738d9e3f0ec699fbf4abbbda31057216f08"
-      url: "https://github.com/intersyntactic/effects.git"
-    source: git
+      name: is_effects
+      sha256: "2d1014ac6b36a7658910a0278b573277fe3cac4be0533e597734bd89c908727a"
+      url: "https://pub.dev"
+    source: hosted
     version: "0.17.0"
   is_logbook_client:
     dependency: "direct main"
@@ -229,11 +228,10 @@ packages:
   is_reply_requests_api:
     dependency: "direct main"
     description:
-      path: "."
-      ref: "2f7b981"
-      resolved-ref: "2f7b9814186977b973616445a86fc85495e1f8dd"
-      url: "https://github.com/intersyntactic/reply_requests_api.git"
-    source: git
+      name: is_reply_requests_api
+      sha256: "9e817455820ca266642f45357e4332d87dfa409aa52aa99032c05119f70a6dbc"
+      url: "https://pub.dev"
+    source: hosted
     version: "0.1.0"
   is_reply_vocabulary:
     dependency: "direct main"
