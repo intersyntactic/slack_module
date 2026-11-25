@@ -181,10 +181,10 @@ packages:
     dependency: "direct main"
     description:
       name: is_docking_station_api
-      sha256: cf10508402a18f108db6dffe132852d2d5e3eb6fe0562aef6cddd7d039bc8c79
+      sha256: "464cf0649057724fc83a8efc413f1d4381a0d95e90465438257828cdc3e8a84e"
       url: "https://pub.dev"
     source: hosted
-    version: "0.4.0"
+    version: "0.7.0"
   is_effects:
     dependency: "direct main"
     description:
@@ -225,6 +225,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.1.0"
+  is_relay:
+    dependency: transitive
+    description:
+      name: is_relay
+      sha256: b87e220124e1a1b3d3ec75219749629ed4b35b5a79f42710e9422c1984f0fa90
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.0"
   is_reply_requests_api:
     dependency: "direct main"
     description:
@@ -261,10 +269,10 @@ packages:
     dependency: "direct main"
     description:
       name: is_slack_relay
-      sha256: bc847e09f968f4643a8312186482ab06a261ff28de2830e75d4c269465ae54c4
+      sha256: f5f882252e749421edd49791e6d9c3c20e59e9784400c486bbeb480c52129ef1
       url: "https://pub.dev"
     source: hosted
-    version: "0.3.1"
+    version: "0.5.0"
   is_web_address_vocabulary:
     dependency: "direct main"
     description:
