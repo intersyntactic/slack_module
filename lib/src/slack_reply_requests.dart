@@ -37,6 +37,10 @@ final class SlackReplyRequests implements WritesSlackReplyRequests {
 
   static final _postMessage = WebPath.parse('/api/chat.postMessage')!;
 
+  /// The requests that post [content] in [to]'s conversation. Each body's
+  /// text is [content]'s escaped (`&`, `<`, `>`), so it differs from the
+  /// decided text exactly where the decided text would have mentioned
+  /// someone or the channel: escaping only takes that power away.
   @override
   List<ProposedRequest> draw(
     RepliesInSlackConversation to,
