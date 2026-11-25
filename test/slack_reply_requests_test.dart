@@ -93,6 +93,13 @@ void main() {
     expect(sent(rs.last).string('text'), 'model: x');
   });
 
+  test('the footer is escaped too, wherever it goes', () {
+    final [r] = draw('done', footer: '<!here>');
+    expect(sent(r).string('text'), 'done\n\n&lt;!here&gt;');
+    final rs = draw('w' * 3999, footer: '<!here>');
+    expect(sent(rs.last).string('text'), '&lt;!here&gt;');
+  });
+
   group('posted', () {
     WebResponse ok(String body) =>
         WebResponse(status: 200, body: TextBody(body));
