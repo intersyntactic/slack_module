@@ -1,17 +1,10 @@
 import 'dart:convert';
 
 import 'package:checked_json/checked_json.dart' show JsonObject;
-import 'package:is_effects/is_effects.dart'
-    show
-        BodyToKeep,
-        Method,
-        NothingRan,
-        Outcome,
-        ProposedRequest,
-        Ran,
-        StoppedPartway,
-        TextBody,
-        WebResponse;
+import 'package:is_outcome_vocabulary/is_outcome_vocabulary.dart'
+    show NothingRan, Outcome, Ran, StoppedPartway;
+import 'package:is_web_request_vocabulary/is_web_request_vocabulary.dart'
+    show BodyToKeep, Method, ProposedRequest, TextBody, WebResponse;
 import 'package:is_airlock_api/is_airlock_api.dart'
     show TrajectoryId, WritesPinnedBodyReplyRequests;
 import 'package:is_conversation_vocabulary/is_conversation_vocabulary.dart'
