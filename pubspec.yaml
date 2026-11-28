@@ -15,7 +15,7 @@ executables:
   slack-reply-drawing: slack_reply_drawing
 
 dependencies:
-  checked_json: ^0.4.0
+  checked_json: ^0.4.1
   is_airlock_api: ^0.26.0
   is_annotation_shapes: ^0.5.0
   is_conversation_vocabulary: ^0.2.0
@@ -24,7 +24,7 @@ dependencies:
   is_outcome_vocabulary: ^0.1.0
   is_shapes: ^0.6.0
   is_sign_in_vocabulary: ^0.1.2
-  is_slack_relay: ^0.7.0
+  is_slack_relay: ^0.7.1
   is_web_address_vocabulary: ^0.1.2
   is_web_request_vocabulary: ^0.1.0
 

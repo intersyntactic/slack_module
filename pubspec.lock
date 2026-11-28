@@ -45,10 +45,10 @@ packages:
     dependency: "direct main"
     description:
       name: checked_json
-      sha256: f945a6154f5737707c35f901dd37a7c5d3bc8a8a4dc2104f55abb68745b84a77
+      sha256: ddc062249d1d11a2cf057a9f3f548532ff4b6d7072b2824f5991c4727253f1e3
       url: "https://pub.dev"
     source: hosted
-    version: "0.4.0"
+    version: "0.4.1"
   cli_config:
     dependency: transitive
     description:
@@ -277,10 +277,10 @@ packages:
     dependency: "direct main"
     description:
       name: is_slack_relay
-      sha256: c730a8d68465dffb7918c31a83224ef3242b490851795198ef2a2bd258968cd9
+      sha256: b540f546364c2b10b5e0a1beba1bc94775cce18a12edeff4015fc4c5cd630542
       url: "https://pub.dev"
     source: hosted
-    version: "0.7.0"
+    version: "0.7.1"
   is_web_address_vocabulary:
     dependency: "direct main"
     description:
