@@ -17,6 +17,9 @@ library;
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:checked_json/checked_json.dart'
+    show decodeJsonRefusingDuplicateKeysAndUnsafeIntegers;
+
 const _slack = 'https://slack.com/api/';
 
 /// A minimal HTTP sender: given a request shape, returns the response. Keeps
@@ -254,7 +257,7 @@ class SlackClient {
         statusCode: res.statusCode,
       );
     }
-    final decoded = jsonDecode(res.body);
+    final decoded = decodeJsonRefusingDuplicateKeysAndUnsafeIntegers(res.body);
     if (decoded is! Map) {
       throw SlackApiError(method, 'non_object_response');
     }

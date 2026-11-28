@@ -1,24 +1,22 @@
 import 'dart:convert';
 
 import 'package:checked_json/checked_json.dart' show JsonObject;
-import 'package:is_effects/is_effects.dart'
+import 'package:is_outcome_vocabulary/is_outcome_vocabulary.dart'
+    show NothingRan, Outcome, Ran, StoppedPartway;
+import 'package:is_web_request_vocabulary/is_web_request_vocabulary.dart'
+    show BodyToKeep, Method, ProposedRequest, TextBody, WebResponse;
+import 'package:is_airlock_api/is_airlock_api.dart'
+    show TrajectoryId, WritesPinnedBodyReplyRequests;
+import 'package:is_conversation_vocabulary/is_conversation_vocabulary.dart'
     show
-        BodyToKeep,
-        Method,
-        NothingRan,
-        Outcome,
-        ProposedRequest,
-        Ran,
-        StoppedPartway,
-        TextBody,
-        WebResponse;
-import 'package:is_reply_requests_api/is_reply_requests_api.dart'
-    show WritesSlackReplyRequests;
-import 'package:is_reply_vocabulary/is_reply_vocabulary.dart'
-    show RepliesInSlackConversation, ReplyContent, SlackMessageTimestamp;
-import 'package:is_shapes/is_shapes.dart' show TrajectoryId;
+        RepliesWithPinnedBodyFields,
+        ReplyContent,
+        ServerAssignedMessageId,
+        SourceMessageId;
 import 'package:is_web_address_vocabulary/is_web_address_vocabulary.dart'
-    show WebPath;
+    show Origin, WebPath;
+
+import 'slack_reply_endpoint.dart';
 
 /// The `chat.postMessage` requests that post a reply in a Slack
 /// conversation, and what each one posted. Pure: no token, no sending.
@@ -28,22 +26,26 @@ import 'package:is_web_address_vocabulary/is_web_address_vocabulary.dart'
 /// into several messages, at a line break where there is one, then a
 /// space, and never inside an escape or a character. The footer ends the
 /// last message, or is a message of its own when it won't fit there.
-final class SlackReplyRequests implements WritesSlackReplyRequests {
+final class SlackReplyRequests implements WritesPinnedBodyReplyRequests {
   const SlackReplyRequests();
 
   /// The most UTF-16 code units one message carries: Slack's advice for a
   /// message's text, which it truncates far above this.
   static const piece = 4000;
 
-  static final _postMessage = WebPath.parse('/api/chat.postMessage')!;
+  @override
+  Set<({Origin origin, WebPath path})> get addresses => {
+    (origin: slackReplyOrigin, path: slackPostMessagePath),
+  };
 
-  /// The requests that post [content] in [to]'s conversation. Each body's
-  /// text is [content]'s escaped (`&`, `<`, `>`), so it differs from the
-  /// decided text exactly where the decided text would have mentioned
-  /// someone or the channel: escaping only takes that power away.
+  /// The requests that post [content] in [to]'s conversation. Each body is
+  /// [to]'s pinned fields as pinned, so it names that conversation and no
+  /// other, plus `text`: [content]'s escaped (`&`, `<`, `>`), so it differs
+  /// from the decided text exactly where the decided text would have
+  /// mentioned someone or the channel: escaping only takes that power away.
   @override
   List<ProposedRequest> draw(
-    RepliesInSlackConversation to,
+    RepliesWithPinnedBodyFields to,
     TrajectoryId trajectory,
     ReplyContent content,
   ) {
@@ -61,20 +63,16 @@ final class SlackReplyRequests implements WritesSlackReplyRequests {
         ProposedRequest(
           to.origin,
           method: Method.post,
-          path: _postMessage,
+          path: to.path,
           headers: const {'content-type': 'application/json; charset=utf-8'},
-          body: jsonEncode({
-            'channel': to.channel.value,
-            if (to.thread case final thread?) 'thread_ts': thread.value,
-            'text': text,
-          }),
+          body: jsonEncode({...to.pinned.mustEqual, 'text': text}),
           keep: BodyToKeep.text,
         ),
     ];
   }
 
   @override
-  Outcome<SlackMessageTimestamp> posted(
+  Outcome<ServerAssignedMessageId> posted(
     WebResponse response,
   ) => switch (response) {
     // Slack's rate limit refuses the request before reading it.
@@ -98,6 +96,42 @@ final class SlackReplyRequests implements WritesSlackReplyRequests {
       done: null,
     ),
   };
+
+  /// What a reply to [to] posted, from the [responses] to its requests in
+  /// the order [draw] wrote them: [Ran] with each message's id, as
+  /// [slackSourceMessageId] writes it, so a later reaction on one names
+  /// the same id. [NothingRan] when Slack says the first posted nothing, or
+  /// there was no response at all. [StoppedPartway] otherwise, with `done`
+  /// the ids of the messages known posted, null when none is.
+  Outcome<List<SourceMessageId>> postedMessages(
+    RepliesWithPinnedBodyFields to,
+    List<WebResponse> responses,
+  ) {
+    final channel = to.pinned.mustEqual['channel'];
+    if (channel == null) {
+      return const StoppedPartway(
+        why: 'the reply endpoint names no Slack channel',
+        done: null,
+      );
+    }
+    if (responses.isEmpty) return const NothingRan('no request was sent');
+    final ids = <SourceMessageId>[];
+    Outcome<List<SourceMessageId>> stopped(String why) =>
+        StoppedPartway(why: why, done: ids.isEmpty ? null : ids);
+    for (final response in responses) {
+      switch (posted(response)) {
+        case Ran(output: final ts):
+          final id = slackSourceMessageId(channel, ts.value);
+          if (id == null) return stopped('no message id for $channel|$ts');
+          ids.add(id);
+        case NothingRan(:final why):
+          return ids.isEmpty ? NothingRan(why) : stopped(why);
+        case StoppedPartway(:final why):
+          return stopped(why);
+      }
+    }
+    return Ran(ids);
+  }
 
   /// [text] with Slack's three control characters escaped, as Slack asks.
   static String _escaped(String text) => text
@@ -155,7 +189,7 @@ sealed class _SlackAnswer {
       return switch (SlackMessageTimestamp.parse(
         answer.stringOrNull('ts') ?? '',
       )) {
-        final ts? => _Posted(ts),
+        final ts? => _Posted(ServerAssignedMessageId.parse(ts.value)!),
         null => null,
       };
     } on FormatException {
@@ -166,7 +200,7 @@ sealed class _SlackAnswer {
 
 final class _Posted extends _SlackAnswer {
   const _Posted(this.ts);
-  final SlackMessageTimestamp ts;
+  final ServerAssignedMessageId ts;
 }
 
 final class _Refused extends _SlackAnswer {
