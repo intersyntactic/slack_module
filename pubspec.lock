@@ -253,10 +253,10 @@ packages:
     dependency: transitive
     description:
       name: is_relay
-      sha256: "1ec3639f07bacc41782ed9976ca70229428762a02d407b81499ec5f6e1b40cf8"
+      sha256: "4b123e8c478cbef1684c02435cf36b30ae769495abd72f8192204d2d040ad44a"
       url: "https://pub.dev"
     source: hosted
-    version: "0.5.1"
+    version: "0.8.0"
   is_shapes:
     dependency: "direct main"
     description:
@@ -277,10 +277,10 @@ packages:
     dependency: "direct main"
     description:
       name: is_slack_relay
-      sha256: de5337dba1cfdc761be9372a788d1f7fc298bd56d855b6f0c9802f6b2a7b1875
+      sha256: c730a8d68465dffb7918c31a83224ef3242b490851795198ef2a2bd258968cd9
       url: "https://pub.dev"
     source: hosted
-    version: "0.6.0"
+    version: "0.7.0"
   is_web_address_vocabulary:
     dependency: "direct main"
     description:
