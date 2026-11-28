@@ -6,7 +6,8 @@
 ///         --trajectory HEX < text
 ///
 /// reads the reply's text, UTF-8, on stdin, and prints the requests as one
-/// JSON array of is_effects' encodeProposedRequest, in posting order, on
+/// JSON array of is_web_request_vocabulary's encodeProposedRequest, in
+/// posting order, on
 /// stdout: [SlackReplyRequests]' with the sign-in set, each keeping its
 /// answer's text so the message's `ts` is in the airlock's result. The
 /// reply endpoint is the one the logbook recorded for the conversation, as
@@ -16,8 +17,9 @@
 ///     slack-reply-drawing posted --reply-endpoint JSON < responses
 ///
 /// reads the airlock's result for those requests on stdin, the JSON array
-/// of is_effects' encodeWebResponse, one per request in order, and prints
-/// what they posted as is_effects' encodeOutcome of the messages' ids, the
+/// of is_web_request_vocabulary's encodeWebResponse, one per request in
+/// order, and prints what they posted as is_outcome_vocabulary's
+/// encodeOutcome of the messages' ids, the
 /// same ids a reaction on one of them is later said to be on.
 ///
 /// Exit: 0 printed; 64 usage; 65 stdin not usable. On a nonzero exit
@@ -35,13 +37,10 @@ import 'package:is_conversation_vocabulary/is_conversation_vocabulary.dart'
         ReplyContent,
         ReplyText,
         decodeReplyEndpoint;
-import 'package:is_effects/is_effects.dart'
-    show
-        ProposedRequest,
-        WebResponse,
-        decodeWebResponse,
-        encodeOutcome,
-        encodeProposedRequest;
+import 'package:is_outcome_vocabulary/is_outcome_vocabulary.dart'
+    show encodeOutcome;
+import 'package:is_web_request_vocabulary/is_web_request_vocabulary.dart'
+    show ProposedRequest, WebResponse, decodeWebResponse, encodeProposedRequest;
 import 'package:is_shapes/is_shapes.dart' show TrajectoryId;
 import 'package:is_sign_in_vocabulary/is_sign_in_vocabulary.dart' show SignIn;
 import 'package:is_slack_module/is_slack_module.dart' show SlackReplyRequests;
