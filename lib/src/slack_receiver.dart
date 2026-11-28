@@ -127,14 +127,14 @@ final class SlackReceiver {
   }
 
   bool _wantsTurn(SlackNode node) => switch (node) {
-        SlackMessage(:final by) => by != selfActor,
-        SlackEdit(:final by) => by != selfActor,
-        SlackReaction(:final by) => by != selfActor,
-        // Tombstones don't run a turn; they record a deletion for readers.
-        SlackTombstone() => false,
-        // Raw events are kept for faithful-mirror reasons (#1068 Q3), not
-        // to wake the agent. A later shape promotion is how one becomes
-        // turn-worthy.
-        SlackEventRaw() => false,
-      };
+    SlackMessage(:final by) => by != selfActor,
+    SlackEdit(:final by) => by != selfActor,
+    SlackReaction(:final by) => by != selfActor,
+    // Tombstones don't run a turn; they record a deletion for readers.
+    SlackTombstone() => false,
+    // Raw events are kept for faithful-mirror reasons (#1068 Q3), not
+    // to wake the agent. A later shape promotion is how one becomes
+    // turn-worthy.
+    SlackEventRaw() => false,
+  };
 }

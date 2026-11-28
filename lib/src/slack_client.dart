@@ -70,9 +70,9 @@ class SlackMessageMetadata {
   final Map<String, Object?> eventPayload;
 
   Map<String, Object?> toJson() => {
-        'event_type': eventType,
-        'event_payload': eventPayload,
-      };
+    'event_type': eventType,
+    'event_payload': eventPayload,
+  };
 }
 
 class SlackApiError implements Exception {
@@ -97,8 +97,8 @@ class SlackApiError implements Exception {
 }
 
 class SlackClient {
-  SlackClient({required this.token, required SlackSend sender}) : _send = sender;
-
+  SlackClient({required this.token, required SlackSend sender})
+    : _send = sender;
 
   final String token;
   final SlackSend _send;
@@ -133,8 +133,8 @@ class SlackClient {
       final meta = res['response_metadata'];
       cursor = (meta is Map && meta['next_cursor'] is String)
           ? (meta['next_cursor'] as String).isEmpty
-              ? null
-              : meta['next_cursor'] as String
+                ? null
+                : meta['next_cursor'] as String
           : null;
     } while (cursor != null);
     return out;
@@ -176,23 +176,13 @@ class SlackClient {
     required String ts,
     required String text,
   }) async {
-    await _post('chat.update', {
-      'channel': channel,
-      'ts': ts,
-      'text': text,
-    });
+    await _post('chat.update', {'channel': channel, 'ts': ts, 'text': text});
   }
 
   /// Removes a message. Used after `/connect <provider> <key>` to keep API
   /// keys out of Slack history.
-  Future<void> chatDelete({
-    required String channel,
-    required String ts,
-  }) async {
-    await _post('chat.delete', {
-      'channel': channel,
-      'ts': ts,
-    });
+  Future<void> chatDelete({required String channel, required String ts}) async {
+    await _post('chat.delete', {'channel': channel, 'ts': ts});
   }
 
   /// Adds an emoji reaction to a message. The design uses this as a one-click
@@ -216,11 +206,13 @@ class SlackClient {
   }
 
   Future<Map<String, dynamic>> _get(Uri url) async {
-    final res = await _send(SlackHttpRequest(
-      method: 'GET',
-      url: url,
-      headers: {'Authorization': 'Bearer $token'},
-    ));
+    final res = await _send(
+      SlackHttpRequest(
+        method: 'GET',
+        url: url,
+        headers: {'Authorization': 'Bearer $token'},
+      ),
+    );
     return _decode(url.pathSegments.last, res);
   }
 
@@ -229,25 +221,25 @@ class SlackClient {
     Map<String, dynamic> payload,
   ) async {
     final body = utf8.encode(jsonEncode(payload));
-    final res = await _send(SlackHttpRequest(
-      method: 'POST',
-      url: Uri.parse('$_slack$method'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json; charset=utf-8',
-      },
-      body: body,
-    ));
+    final res = await _send(
+      SlackHttpRequest(
+        method: 'POST',
+        url: Uri.parse('$_slack$method'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+        body: body,
+      ),
+    );
     return _decode(method, res);
   }
 
-  static Map<String, dynamic> _decode(
-    String method,
-    SlackHttpResponse res,
-  ) {
+  static Map<String, dynamic> _decode(String method, SlackHttpResponse res) {
     if (res.statusCode == 429) {
-      final retryAfter =
-          int.tryParse(res.headers['retry-after'] ?? res.headers['Retry-After'] ?? '');
+      final retryAfter = int.tryParse(
+        res.headers['retry-after'] ?? res.headers['Retry-After'] ?? '',
+      );
       throw SlackApiError(
         method,
         'rate_limited',
@@ -300,8 +292,8 @@ class SlackMessageStream {
     required this.ts,
     required this.minInterval,
     required DateTime Function() nowFn,
-  })  : _buffer = StringBuffer(),
-        _now = nowFn;
+  }) : _buffer = StringBuffer(),
+       _now = nowFn;
 
   static Future<SlackMessageStream> open({
     required SlackClient client,
@@ -372,10 +364,7 @@ class SlackMessageStream {
       // close. Not raised to the caller: a streamed edit failing mid-turn is
       // a style issue, not an outcome.
       if (e.retryAfterSeconds != null) {
-        _pending = Timer(
-          Duration(seconds: e.retryAfterSeconds!),
-          _flushNow,
-        );
+        _pending = Timer(Duration(seconds: e.retryAfterSeconds!), _flushNow);
       }
     }
   }

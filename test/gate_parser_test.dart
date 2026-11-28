@@ -15,91 +15,86 @@ relay.SlackMessage messageEvent({
   String eventTs = '1700000000.000100',
   String? rawThreadTs,
   bool mention = false,
-}) =>
-    relay.SlackMessage(
-      workspace: team,
-      channel: channel,
-      threadTs: rawThreadTs ?? eventTs,
-      mention: mention,
-      user: user,
-      text: text,
-      eventTs: eventTs,
-      rawThreadTs: rawThreadTs,
-      rawEvent: {
-        'type': mention ? 'app_mention' : 'message',
-        'channel': channel,
-        'user': user,
-        'ts': eventTs,
-        'thread_ts': ?rawThreadTs,
-        'text': text,
-      },
-    );
+}) => relay.SlackMessage(
+  workspace: team,
+  channel: channel,
+  threadTs: rawThreadTs ?? eventTs,
+  mention: mention,
+  user: user,
+  text: text,
+  eventTs: eventTs,
+  rawThreadTs: rawThreadTs,
+  rawEvent: {
+    'type': mention ? 'app_mention' : 'message',
+    'channel': channel,
+    'user': user,
+    'ts': eventTs,
+    'thread_ts': ?rawThreadTs,
+    'text': text,
+  },
+);
 
 relay.SlackMessage editEvent({
   String editTs = '1700000005.000200',
   String newText = 'hello (edited)',
   String previousTs = '1700000000.000100',
   String anchor = '1700000000.000100',
-}) =>
-    relay.SlackMessage(
-      workspace: team,
-      channel: channel,
-      threadTs: anchor,
-      eventTs: editTs,
-      subtype: relay.SlackMessageSubtype.messageChanged,
-      rawEvent: {
-        'type': 'message',
-        'subtype': 'message_changed',
-        'channel': channel,
-        'ts': editTs,
-        'message': {
-          'type': 'message',
-          'user': user,
-          'text': newText,
-          'ts': previousTs,
-        },
-        'previous_message': {
-          'type': 'message',
-          'user': user,
-          'text': 'hello',
-          'ts': previousTs,
-        },
-      },
-    );
+}) => relay.SlackMessage(
+  workspace: team,
+  channel: channel,
+  threadTs: anchor,
+  eventTs: editTs,
+  subtype: relay.SlackMessageSubtype.messageChanged,
+  rawEvent: {
+    'type': 'message',
+    'subtype': 'message_changed',
+    'channel': channel,
+    'ts': editTs,
+    'message': {
+      'type': 'message',
+      'user': user,
+      'text': newText,
+      'ts': previousTs,
+    },
+    'previous_message': {
+      'type': 'message',
+      'user': user,
+      'text': 'hello',
+      'ts': previousTs,
+    },
+  },
+);
 
 relay.SlackMessage deleteEvent({
   String deleteTs = '1700000006.000300',
   String deletedTs = '1700000000.000100',
   String anchor = '1700000000.000100',
-}) =>
-    relay.SlackMessage(
-      workspace: team,
-      channel: channel,
-      threadTs: anchor,
-      user: user,
-      eventTs: deleteTs,
-      subtype: relay.SlackMessageSubtype.messageDeleted,
-      rawEvent: {
-        'type': 'message',
-        'subtype': 'message_deleted',
-        'channel': channel,
-        'event_ts': deleteTs,
-        'deleted_ts': deletedTs,
-        'previous_message': {
-          'type': 'message',
-          'user': user,
-          'text': 'hello',
-          'ts': deletedTs,
-        },
-      },
-    );
+}) => relay.SlackMessage(
+  workspace: team,
+  channel: channel,
+  threadTs: anchor,
+  user: user,
+  eventTs: deleteTs,
+  subtype: relay.SlackMessageSubtype.messageDeleted,
+  rawEvent: {
+    'type': 'message',
+    'subtype': 'message_deleted',
+    'channel': channel,
+    'event_ts': deleteTs,
+    'deleted_ts': deletedTs,
+    'previous_message': {
+      'type': 'message',
+      'user': user,
+      'text': 'hello',
+      'ts': deletedTs,
+    },
+  },
+);
 
 void main() {
   group('plain messages and mentions', () {
     test('a top-level app_mention parses to a SlackMessage', () {
-      final (path, node) = parseMessageToSlackNode(
-        messageEvent(mention: true),
-      );
+      final (path, node) = parseMessageToSlackNode(messageEvent(mention: true));
 
       expect(path.workspace, team);
       expect(path.channel, channel);
@@ -116,8 +111,7 @@ void main() {
       expect(m.threadTs, isNull);
     });
 
-    test(
-        'a reply inside an existing thread carries rawThreadTs through to '
+    test('a reply inside an existing thread carries rawThreadTs through to '
         'SlackMessage.threadTs', () {
       final (path, node) = parseMessageToSlackNode(
         messageEvent(
@@ -154,8 +148,8 @@ void main() {
         editEvent(),
         lookup: (SlackThread p, String ts) =>
             p.threadTs == '1700000000.000100' && ts == '1700000000.000100'
-                ? priorId
-                : null,
+            ? priorId
+            : null,
       );
 
       expect(node, isA<SlackEdit>());
@@ -178,14 +172,16 @@ void main() {
       expect(decoded['subtype'], 'message_changed');
     });
 
-    test('a message_changed with a lookup that returns null falls back to raw',
-        () {
-      final (_, node) = parseMessageToSlackNode(
-        editEvent(),
-        lookup: (_, _) => null,
-      );
-      expect(node, isA<SlackEventRaw>());
-    });
+    test(
+      'a message_changed with a lookup that returns null falls back to raw',
+      () {
+        final (_, node) = parseMessageToSlackNode(
+          editEvent(),
+          lookup: (_, _) => null,
+        );
+        expect(node, isA<SlackEventRaw>());
+      },
+    );
   });
 
   group('tombstones', () {
@@ -195,8 +191,8 @@ void main() {
         deleteEvent(),
         lookup: (SlackThread p, String ts) =>
             p.threadTs == '1700000000.000100' && ts == '1700000000.000100'
-                ? targetId
-                : null,
+            ? targetId
+            : null,
       );
       expect(node, isA<SlackTombstone>());
       final t = node as SlackTombstone;
@@ -212,8 +208,7 @@ void main() {
       expect(r.slackEventType, 'message');
     });
 
-    test(
-        'a message_deleted missing both deleted_ts and previous_message falls '
+    test('a message_deleted missing both deleted_ts and previous_message falls '
         'back to SlackEventRaw', () {
       final d = deleteEvent();
       final raw = Map<String, Object?>.from(d.rawEvent);
@@ -246,7 +241,8 @@ void main() {
         user: event.user,
         text: event.text,
         eventTs: event.eventTs,
-        subtype: relay.SlackMessageSubtype.threadBroadcast, // real but unhandled
+        subtype:
+            relay.SlackMessageSubtype.threadBroadcast, // real but unhandled
         rawEvent: event.rawEvent,
       );
       final (_, node) = parseMessageToSlackNode(broadcast);
@@ -259,43 +255,41 @@ void main() {
       String targetTs = '1700000000.000100',
       String reaction = 'thumbsup',
       String eventTs = '1700000100.000500',
-    }) =>
-        relay.SlackReactionAdded(
-          workspace: team,
-          channel: channel,
-          user: user,
-          reaction: reaction,
-          targetTs: targetTs,
-          eventTs: eventTs,
-          rawEvent: {
-            'type': 'reaction_added',
-            'user': user,
-            'reaction': reaction,
-            'item': {'type': 'message', 'channel': channel, 'ts': targetTs},
-            'event_ts': eventTs,
-          },
-        );
+    }) => relay.SlackReactionAdded(
+      workspace: team,
+      channel: channel,
+      user: user,
+      reaction: reaction,
+      targetTs: targetTs,
+      eventTs: eventTs,
+      rawEvent: {
+        'type': 'reaction_added',
+        'user': user,
+        'reaction': reaction,
+        'item': {'type': 'message', 'channel': channel, 'ts': targetTs},
+        'event_ts': eventTs,
+      },
+    );
 
     relay.SlackReactionRemoved reactionRemovedEvent({
       String targetTs = '1700000000.000100',
       String reaction = 'thumbsup',
       String eventTs = '1700000100.000500',
-    }) =>
-        relay.SlackReactionRemoved(
-          workspace: team,
-          channel: channel,
-          user: user,
-          reaction: reaction,
-          targetTs: targetTs,
-          eventTs: eventTs,
-          rawEvent: {
-            'type': 'reaction_removed',
-            'user': user,
-            'reaction': reaction,
-            'item': {'type': 'message', 'channel': channel, 'ts': targetTs},
-            'event_ts': eventTs,
-          },
-        );
+    }) => relay.SlackReactionRemoved(
+      workspace: team,
+      channel: channel,
+      user: user,
+      reaction: reaction,
+      targetTs: targetTs,
+      eventTs: eventTs,
+      rawEvent: {
+        'type': 'reaction_removed',
+        'user': user,
+        'reaction': reaction,
+        'item': {'type': 'message', 'channel': channel, 'ts': targetTs},
+        'event_ts': eventTs,
+      },
+    );
 
     test('reaction_added with a locate-hit becomes a SlackReaction', () {
       final targetId = TurnId.of(Uint8List.fromList([7, 7, 7]));
@@ -308,8 +302,8 @@ void main() {
         reactionAddedEvent(),
         locate: (String c, String ts) =>
             c == channel && ts == '1700000000.000100'
-                ? (id: targetId, path: targetPath)
-                : null,
+            ? (id: targetId, path: targetPath)
+            : null,
       );
 
       expect(path, equals(targetPath));
@@ -336,8 +330,7 @@ void main() {
       expect(node, isA<SlackEventRaw>());
     });
 
-    test(
-        'parseReactionRemovedToWithdraw with a locate+findReaction hit '
+    test('parseReactionRemovedToWithdraw with a locate+findReaction hit '
         'returns the Withdrawal', () {
       final messageId = TurnId.of(Uint8List.fromList([1, 2, 3]));
       final reactionId = TurnId.of(Uint8List.fromList([4, 5, 6]));
@@ -354,8 +347,7 @@ void main() {
           required TurnId target,
           required String emoji,
           required ActorId by,
-        }) =>
-            target == messageId && emoji == 'thumbsup' ? reactionId : null,
+        }) => target == messageId && emoji == 'thumbsup' ? reactionId : null,
       );
       expect(out, isNotNull);
       final (resolvedPath, withdraw) = out!;
@@ -372,45 +364,44 @@ void main() {
           required TurnId target,
           required String emoji,
           required ActorId by,
-        }) =>
-            TurnId.of(Uint8List.fromList([9])),
+        }) => TurnId.of(Uint8List.fromList([9])),
       );
       expect(out, isNull);
     });
 
-    test('parseReactionRemovedToWithdraw returns null when findReaction misses',
-        () {
-      final messageId = TurnId.of(Uint8List.fromList([1, 2, 3]));
-      final path = SlackThread(
-        workspace: team,
-        channel: channel,
-        threadTs: '1700000000.000100',
-      );
-      final out = parseReactionRemovedToWithdraw(
-        reactionRemovedEvent(),
-        locate: (_, _) => (id: messageId, path: path),
-        findReaction: ({
-          required TurnId target,
-          required String emoji,
-          required ActorId by,
-        }) =>
-            null,
-      );
-      expect(out, isNull);
-    });
+    test(
+      'parseReactionRemovedToWithdraw returns null when findReaction misses',
+      () {
+        final messageId = TurnId.of(Uint8List.fromList([1, 2, 3]));
+        final path = SlackThread(
+          workspace: team,
+          channel: channel,
+          threadTs: '1700000000.000100',
+        );
+        final out = parseReactionRemovedToWithdraw(
+          reactionRemovedEvent(),
+          locate: (_, _) => (id: messageId, path: path),
+          findReaction: ({
+            required TurnId target,
+            required String emoji,
+            required ActorId by,
+          }) => null,
+        );
+        expect(out, isNull);
+      },
+    );
   });
 
   group('round-trip through the receiver', () {
-    test('a parsed SlackMessage writes to the mirror and emits wantsTurn',
-        () {
+    test('a parsed SlackMessage writes to the mirror and emits wantsTurn', () {
       final mirror = InMemoryRecordsAndFindsSlackNodes();
-      final selfActor =
-          SlackActorId.forWorkspace(workspaceId: team, userId: 'UBOT');
+      final selfActor = SlackActorId.forWorkspace(
+        workspaceId: team,
+        userId: 'UBOT',
+      );
       final receiver = SlackReceiver(mirror: mirror, selfActor: selfActor);
 
-      final (path, node) = parseMessageToSlackNode(
-        messageEvent(mention: true),
-      );
+      final (path, node) = parseMessageToSlackNode(messageEvent(mention: true));
       final record = receiver.receive(path, node);
 
       expect(record.wantsTurn, isTrue);

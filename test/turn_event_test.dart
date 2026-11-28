@@ -6,21 +6,23 @@ import 'package:test/test.dart';
 /// analysis, which is the point (teams-module-e2 and this module diff their
 /// families by comparing exactly this switch set).
 String _describe(TurnEvent e) => switch (e) {
-      TurnBegan(:final echoedText) => 'began:$echoedText',
-      TurnWorking(:final status) => 'working:$status',
-      TurnWriting(:final textSoFar) => 'writing:${textSoFar.length}',
-      StepEnded() => 'step_ended',
-      TurnAsked(:final prompt) => 'asked:$prompt',
-      TurnEnded(:final kind, :final detail) => 'ended:${kind.name}:$detail',
-    };
+  TurnBegan(:final echoedText) => 'began:$echoedText',
+  TurnWorking(:final status) => 'working:$status',
+  TurnWriting(:final textSoFar) => 'writing:${textSoFar.length}',
+  StepEnded() => 'step_ended',
+  TurnAsked(:final prompt) => 'asked:$prompt',
+  TurnEnded(:final kind, :final detail) => 'ended:${kind.name}:$detail',
+};
 
 void main() {
   final t = DateTime.utc(2026, 11, 10, 22, 0, 0);
 
   test('each variant describes itself through the sealed switch', () {
     expect(_describe(TurnBegan(at: t, echoedText: 'hi')), 'began:hi');
-    expect(_describe(TurnWorking(at: t, status: 'thinking')),
-        'working:thinking');
+    expect(
+      _describe(TurnWorking(at: t, status: 'thinking')),
+      'working:thinking',
+    );
     expect(_describe(TurnWriting(at: t, textSoFar: 'abc')), 'writing:3');
     expect(_describe(StepEnded(at: t)), 'step_ended');
     expect(_describe(TurnAsked(at: t, prompt: 'ok?')), 'asked:ok?');
@@ -29,11 +31,7 @@ void main() {
       'ended:idle:',
     );
     expect(
-      _describe(TurnEnded(
-        at: t,
-        kind: TurnEndedKind.failed,
-        detail: 'boom',
-      )),
+      _describe(TurnEnded(at: t, kind: TurnEndedKind.failed, detail: 'boom')),
       'ended:failed:boom',
     );
   });

@@ -131,7 +131,10 @@ final class SlackReply {
   String _mintProvisionalTs() {
     final n = _now().toUtc();
     final seconds = n.millisecondsSinceEpoch ~/ 1000;
-    final micros = (n.microsecondsSinceEpoch % 1000000).toString().padLeft(6, '0');
+    final micros = (n.microsecondsSinceEpoch % 1000000).toString().padLeft(
+      6,
+      '0',
+    );
     return '$seconds.$micros';
   }
 }
