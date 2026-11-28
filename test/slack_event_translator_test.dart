@@ -206,6 +206,80 @@ void main() {
     }
   });
 
+  group('whether a message is for our bot', () {
+    WhetherForTheAgent forTheAgent(
+      relay.SlackEvent last, [
+      List<relay.SlackEvent> before = const [],
+    ]) => (fold([...before, last]).last as MessageSaid).forTheAgent;
+
+    test('every message in a DM is', () {
+      expect(
+        forTheAgent(
+          said(
+            ts: '1800000004.000100',
+            inChannel: dm,
+            channelType: relay.SlackChannelType.im,
+          ),
+        ),
+        WhetherForTheAgent.everyMessageHereIsForTheAgent,
+      );
+    });
+
+    test('a channel message that mentions it anywhere does', () {
+      expect(
+        forTheAgent(
+          said(ts: '1800000005.000100', text: 'staging is up, <@U0BOT> go'),
+        ),
+        WhetherForTheAgent.mentionsTheAgent,
+      );
+    });
+
+    test('a reply in a thread our bot posted in replies to it', () {
+      expect(
+        forTheAgent(
+          said(
+            ts: '1800000006.000100',
+            threadTs: '1800000001.000100',
+            text: 'yes, it arrived',
+          ),
+          [shown('1800000002.000100')],
+        ),
+        WhetherForTheAgent.repliesToTheAgent,
+      );
+    });
+
+    test('a reply to our bot\'s top-level post replies to it', () {
+      expect(
+        forTheAgent(
+          said(ts: '1800000008.000100', threadTs: '1800000007.000100'),
+          [shown('1800000007.000100', threadTs: '1800000007.000100')],
+        ),
+        WhetherForTheAgent.repliesToTheAgent,
+      );
+    });
+
+    test('anything else in a channel, a CI deploy post too, is neither', () {
+      expect(
+        forTheAgent(
+          said(ts: '1800000009.000100', threadTs: '1800000001.000100'),
+          [shown('1800000002.000100', threadTs: '1800000099.000100')],
+        ),
+        WhetherForTheAgent.neitherMentionsNorRepliesToTheAgent,
+      );
+      expect(
+        forTheAgent(said(ts: '1800000010.000100', user: 'U0CI', botId: 'B0CI')),
+        WhetherForTheAgent.neitherMentionsNorRepliesToTheAgent,
+      );
+    });
+
+    test('with no channel type, which may be a DM, it is not known', () {
+      expect(
+        forTheAgent(said(ts: '1800000011.000100', channelType: null)),
+        WhetherForTheAgent.notKnown,
+      );
+    });
+  });
+
   test(
     'a DM, the app\'s Messages tab included, is one address inside none',
     () {
