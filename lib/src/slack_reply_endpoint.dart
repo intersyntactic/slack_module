@@ -1,5 +1,5 @@
 import 'package:is_conversation_vocabulary/is_conversation_vocabulary.dart'
-    show PinnedBodyFields, RepliesWithPinnedBodyFields;
+    show PinnedBodyFields, RepliesWithPinnedBodyFields, SourceMessageId;
 import 'package:is_web_address_vocabulary/is_web_address_vocabulary.dart'
     show Origin, WebPath;
 
@@ -59,6 +59,13 @@ final class SlackMessageTimestamp {
   @override
   String toString() => value;
 }
+
+/// The id the trajectory knows the Slack message at [ts] in [channel] by,
+/// `<channel>|<ts>`: the one a message said is given, a reaction names the
+/// message it is on by, and a reply this module posted is known by. The
+/// only place the form is written, so those three can't drift apart.
+SourceMessageId? slackSourceMessageId(String channel, String ts) =>
+    SourceMessageId.parse('$channel|$ts');
 
 /// A reply in [channel], in [thread] when there is one: `chat.postMessage`
 /// with `channel`, and `thread_ts` for a thread, pinned, and `text` the only

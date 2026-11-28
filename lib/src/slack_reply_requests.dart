@@ -15,7 +15,11 @@ import 'package:is_effects/is_effects.dart'
 import 'package:is_airlock_api/is_airlock_api.dart'
     show TrajectoryId, WritesPinnedBodyReplyRequests;
 import 'package:is_conversation_vocabulary/is_conversation_vocabulary.dart'
-    show RepliesWithPinnedBodyFields, ReplyContent, ServerAssignedMessageId;
+    show
+        RepliesWithPinnedBodyFields,
+        ReplyContent,
+        ServerAssignedMessageId,
+        SourceMessageId;
 import 'package:is_web_address_vocabulary/is_web_address_vocabulary.dart'
     show Origin, WebPath;
 
@@ -99,6 +103,42 @@ final class SlackReplyRequests implements WritesPinnedBodyReplyRequests {
       done: null,
     ),
   };
+
+  /// What a reply to [to] posted, from the [responses] to its requests in
+  /// the order [draw] wrote them: [Ran] with each message's id, as
+  /// [slackSourceMessageId] writes it, so a later reaction on one names
+  /// the same id. [NothingRan] when Slack says the first posted nothing, or
+  /// there was no response at all. [StoppedPartway] otherwise, with `done`
+  /// the ids of the messages known posted, null when none is.
+  Outcome<List<SourceMessageId>> postedMessages(
+    RepliesWithPinnedBodyFields to,
+    List<WebResponse> responses,
+  ) {
+    final channel = to.pinned.mustEqual['channel'];
+    if (channel == null) {
+      return const StoppedPartway(
+        why: 'the reply endpoint names no Slack channel',
+        done: null,
+      );
+    }
+    if (responses.isEmpty) return const NothingRan('no request was sent');
+    final ids = <SourceMessageId>[];
+    Outcome<List<SourceMessageId>> stopped(String why) =>
+        StoppedPartway(why: why, done: ids.isEmpty ? null : ids);
+    for (final response in responses) {
+      switch (posted(response)) {
+        case Ran(output: final ts):
+          final id = slackSourceMessageId(channel, ts.value);
+          if (id == null) return stopped('no message id for $channel|$ts');
+          ids.add(id);
+        case NothingRan(:final why):
+          return ids.isEmpty ? NothingRan(why) : stopped(why);
+        case StoppedPartway(:final why):
+          return stopped(why);
+      }
+    }
+    return Ran(ids);
+  }
 
   /// [text] with Slack's three control characters escaped, as Slack asks.
   static String _escaped(String text) => text
