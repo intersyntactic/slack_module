@@ -65,6 +65,14 @@ relay.SlackReactionAdded reacted(
   deliveredForUser: ourBot,
 );
 
+/// Where [e]'s replies go in Slack, `<channel>/<thread>` or `<channel>`;
+/// null when it names no Slack conversation.
+String? replyTo(AddressedEvent e) => switch (e.replyEndpoint) {
+  RepliesInSlackConversation(:final channel, :final thread) =>
+    thread == null ? channel.value : '${channel.value}/${thread.value}',
+  _ => null,
+};
+
 /// [bytes] as the docking station hands them over: recorded as the relay
 /// records them and read back from the entry.
 RelayedEvent recorded(List<int> bytes) {
@@ -128,9 +136,12 @@ void main() {
     expect(m.node.author.value, 'slack:$team/U0ADA');
     expect(m.node.source.value, '$channel|1800000001.000100');
     expect(m.key.value, 'message:1800000001.000100');
+    final reply = m.replyEndpoint as RepliesInSlackConversation;
+    expect(reply.origin, slackReplyOrigin);
+    expect(replyTo(m), '$channel/1800000001.000100');
   });
 
-  test('a reply is said in the thread it replies in', () {
+  test('a reply is said, and answered, in the thread it replies in', () {
     final [_, t] = fold([
       said(ts: '1800000001.000100'),
       said(ts: '1800000002.000100', threadTs: '1800000001.000100'),
@@ -139,6 +150,7 @@ void main() {
       (t as MessageSaid).addressInExternalSystem.value,
       'slack:$channel/1800000001.000100',
     );
+    expect(replyTo(t), '$channel/1800000001.000100');
   });
 
   test('a mention, delivered as app_mention and message, has one key', () {
@@ -167,6 +179,7 @@ void main() {
     final m = t as MessageSaid;
     expect(m.addressInExternalSystem.value, 'slack:$dm');
     expect(m.containingAddress, isNull);
+    expect(replyTo(m), dm);
   });
 
   test('a CI bot\'s deploy post is said, by that bot', () {
@@ -213,6 +226,7 @@ void main() {
       approved.addressInExternalSystem.value,
       'slack:$channel/1800000001.000100',
     );
+    expect(replyTo(approved), '$channel/1800000001.000100');
     expect((events[2] as ShownMessageJudged).verdict, isA<HeldOffVerdict>());
     expect(events[3], isA<NothingToAdmit>());
   });

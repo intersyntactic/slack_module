@@ -7,12 +7,14 @@ import 'package:is_conversation_shapes/is_conversation_shapes.dart'
 import 'package:is_docking_station_api/is_docking_station_api.dart';
 import 'package:is_shapes/is_shapes.dart' show ActorId;
 import 'package:is_slack_relay/is_slack_relay.dart' as relay;
+import 'package:is_web_address_vocabulary/is_web_address_vocabulary.dart'
+    show Origin;
 
 import 'slack_actor_id.dart';
 
-/// The source the Slack relay records its events under, so they are
-/// `slack-event` entries, and the one this translator reads.
-final slackEventSource = RelayedEventSource.parse('slack')!;
+/// Where every Slack reply is sent: one site for every workspace, since the
+/// bot's sign-in names the workspace.
+final slackReplyOrigin = Origin.parse('https://slack.com')!;
 
 /// The Slack module's translator, for the docking station: what each event
 /// the Slack relay recorded is, in the docking station's terms, in the
@@ -39,9 +41,10 @@ final slackEventSource = RelayedEventSource.parse('slack')!;
 /// inside none. Channel ids are global in Slack, so no workspace is in an
 /// address.
 ///
-/// [AddressedEvent.replyEndpoint] is null: Slack's `chat.postMessage` names
-/// the channel in its body, so no address prefix can hold a reply to one
-/// thread.
+/// Replies go to [RepliesInSlackConversation] at [slackReplyOrigin]: the
+/// event's channel, and its thread, which for a top-level post is the post
+/// itself. A DM with one person has no thread. A channel id Slack's reply
+/// can't name leaves the event with no reply endpoint.
 final class SlackEventTranslator
     implements TranslatesRelayedEvents<SlackEventTranslatorState> {
   const SlackEventTranslator({this.parse = relay.slackRecordedEvent});
@@ -51,7 +54,7 @@ final class SlackEventTranslator
   final relay.SlackEvent? Function(Uint8List bytes) parse;
 
   @override
-  RelayedEventSource get source => slackEventSource;
+  RelayedEventSource get source => relay.slackEventSource;
 
   @override
   SlackEventTranslatorState get start => SlackEventTranslatorState.empty;
@@ -94,7 +97,7 @@ final class SlackEventTranslator
             addressInExternalSystem: place.address,
             containingAddress: place.containing,
             addressedTo: addressedTo,
-            replyEndpoint: null,
+            replyEndpoint: place.reply,
             key: key,
             node: UserSaid(
               author: _actor(event, id),
@@ -127,7 +130,7 @@ final class SlackEventTranslator
           addressInExternalSystem: shown.address,
           containingAddress: shown.containing,
           addressedTo: addressedTo,
-          replyEndpoint: null,
+          replyEndpoint: shown.reply,
           from: _actor(event, event.user),
           key: key,
           to: to,
@@ -250,12 +253,14 @@ enum SlackVerdictReaction {
   }
 }
 
-/// Where a message sits: its address, and the one that address sits in.
+/// Where a message sits: its address, the one that address sits in, and
+/// where a reply to it goes.
 final class _SlackPlace {
-  const _SlackPlace(this.address, this.containing);
+  const _SlackPlace(this.address, this.containing, this.reply);
 
   final AddressInExternalSystem address;
   final AddressInExternalSystem? containing;
+  final RepliesInSlackConversation? reply;
 
   /// A DM with one person is one address; anywhere else, a group DM
   /// included, each thread is one, inside its channel. An `app_mention`
@@ -265,21 +270,33 @@ final class _SlackPlace {
     final channel = AddressInExternalSystem.parse('slack:${m.channel}');
     if (channel == null) return null;
     if (m.channelType == relay.SlackChannelType.im) {
-      return _SlackPlace(channel, null);
+      return _SlackPlace(channel, null, _replyIn(m.channel, null));
     }
     final thread = AddressInExternalSystem.parse(
       'slack:${m.channel}/${m.threadTs}',
     );
-    return thread == null ? null : _SlackPlace(thread, channel);
+    if (thread == null) return null;
+    return _SlackPlace(thread, channel, _replyIn(m.channel, m.threadTs));
+  }
+
+  /// A reply in [channel], in [thread] unless that's null; null when Slack's
+  /// reply can't name either.
+  static RepliesInSlackConversation? _replyIn(String channel, String? thread) {
+    final id = SlackChannelId.parse(channel);
+    if (id == null) return null;
+    if (thread == null) {
+      return RepliesInSlackConversation(origin: slackReplyOrigin, channel: id);
+    }
+    return switch (SlackMessageTimestamp.parse(thread)) {
+      final ts? => RepliesInSlackConversation(
+        origin: slackReplyOrigin,
+        channel: id,
+        thread: ts,
+      ),
+      null => null,
+    };
   }
 }
-
-/// What our bot's message is remembered by, so a reaction on it, which
-/// names only the channel and its ts, can be placed.
-typedef _Shown = ({
-  AddressInExternalSystem address,
-  AddressInExternalSystem? containing,
-});
 
 /// What the Slack translator carries from one event to the next: our bot's
 /// messages, by channel and ts, with where each sits.
@@ -291,7 +308,7 @@ final class SlackEventTranslatorState {
   /// Before any event.
   static const empty = SlackEventTranslatorState._({});
 
-  final Map<(String, String), _Shown> _shown;
+  final Map<(String, String), _SlackPlace> _shown;
 
   /// This, with [event] remembered when it is our bot's message.
   SlackEventTranslatorState learnt(relay.SlackEvent event) {
@@ -300,13 +317,7 @@ final class SlackEventTranslatorState {
       final place = _SlackPlace.of(event);
       if (place == null) return this;
       return SlackEventTranslatorState._(
-        Map.unmodifiable({
-          ..._shown,
-          (event.channel, eventTs): (
-            address: place.address,
-            containing: place.containing,
-          ),
-        }),
+        Map.unmodifiable({..._shown, (event.channel, eventTs): place}),
       );
     }
     return this;
