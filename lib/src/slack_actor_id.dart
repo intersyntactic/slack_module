@@ -22,8 +22,7 @@ final class SlackActorId {
   static ActorId forWorkspace({
     required String workspaceId,
     required String userId,
-  }) =>
-      ActorId.parse('slack:$workspaceId/$userId')!;
+  }) => ActorId.parse('slack:$workspaceId/$userId')!;
 
   /// A Slack user in an Enterprise Grid org. [enterpriseId] is Slack's
   /// `enterprise_id` payload field (`E...` prefix). Use this instead of
@@ -31,6 +30,5 @@ final class SlackActorId {
   static ActorId forGrid({
     required String enterpriseId,
     required String userId,
-  }) =>
-      ActorId.parse('slack:$enterpriseId/$userId')!;
+  }) => ActorId.parse('slack:$enterpriseId/$userId')!;
 }

@@ -30,7 +30,8 @@ const String intersyntacticSlackReplyEventType = 'intersyntactic_slack.reply';
 /// if the message has no intersyntactic metadata — i.e. a person posted
 /// it, or another app did.
 IntersyntacticStamp? extractIntersyntacticStamp(
-    Map<String, dynamic> slackMessage) {
+  Map<String, dynamic> slackMessage,
+) {
   final metadata = slackMessage['metadata'];
   if (metadata is! Map) return null;
   if (metadata['event_type'] != intersyntacticSlackReplyEventType) return null;

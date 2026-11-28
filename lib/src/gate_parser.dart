@@ -61,8 +61,10 @@ typedef SlackMessageLookup = TurnId? Function(SlackThread path, String ts);
 /// sits on, in one query. Used by the reaction path — a reaction event
 /// carries `event.targetTs` but no `threadTs`, so the mission can only be
 /// learned from a mirror index.
-typedef SlackChannelTsLocate =
-    ({TurnId id, SlackThread path})? Function(String channel, String ts);
+typedef SlackChannelTsLocate = ({TurnId id, SlackThread path})? Function(
+  String channel,
+  String ts,
+);
 
 /// Resolves `(target, emoji, by)` to the `TurnId` of the matching
 /// `SlackReaction` on `target`'s path. `Withdrawal<SlackReaction>` requires
@@ -219,10 +221,7 @@ typedef SlackReactionFinder = TurnId? Function({
     SlackReaction(
       target: hit.id,
       emoji: emoji,
-      by: SlackActorId.forWorkspace(
-        workspaceId: workspace,
-        userId: userId,
-      ),
+      by: SlackActorId.forWorkspace(workspaceId: workspace, userId: userId),
       ts: eventTs,
     ),
   );
@@ -254,10 +253,7 @@ typedef SlackReactionFinder = TurnId? Function({
 
   final target = locate(channel, targetTs);
   if (target == null) return null;
-  final by = SlackActorId.forWorkspace(
-    workspaceId: workspace,
-    userId: userId,
-  );
+  final by = SlackActorId.forWorkspace(workspaceId: workspace, userId: userId);
   final reactionId = findReaction(target: target.id, emoji: emoji, by: by);
   if (reactionId == null) return null;
   return (target.path, Withdrawal<SlackReaction>(target: reactionId, by: by));
@@ -270,21 +266,21 @@ SlackEventRaw _raw(
   String workspace, {
   String? userId,
 }) {
-  final slackEventType = raw['type'] is String ? raw['type'] as String : 'unknown';
+  final slackEventType = raw['type'] is String
+      ? raw['type'] as String
+      : 'unknown';
   final ts = raw['event_ts'] is String
       ? raw['event_ts'] as String
       : (raw['ts'] is String ? raw['ts'] as String : anchor);
-  final rawUser = userId ?? (raw['user'] is String ? raw['user'] as String : null);
+  final rawUser =
+      userId ?? (raw['user'] is String ? raw['user'] as String : null);
   return SlackEventRaw(
     slackEventType: slackEventType,
     channel: channel,
     ts: ts,
     by: rawUser == null
         ? null
-        : SlackActorId.forWorkspace(
-            workspaceId: workspace,
-            userId: rawUser,
-          ),
+        : SlackActorId.forWorkspace(workspaceId: workspace, userId: rawUser),
     rawPayload: jsonEncode(raw),
   );
 }

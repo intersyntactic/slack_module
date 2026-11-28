@@ -52,8 +52,11 @@ void main() {
         _path,
         SlackReaction(target: targetId, emoji: 'thumbsup', by: _human, ts: '2'),
       );
-      expect(out.wantsTurn, isTrue,
-          reason: 'A human reaction is a human turn per PR 1112.');
+      expect(
+        out.wantsTurn,
+        isTrue,
+        reason: 'A human reaction is a human turn per PR 1112.',
+      );
     });
 
     test('self-authored reaction does not ask for a turn', () {
@@ -63,10 +66,19 @@ void main() {
       );
       final out = receiver.receive(
         _path,
-        SlackReaction(target: targetId, emoji: 'arrows_counterclockwise', by: _self, ts: '2'),
+        SlackReaction(
+          target: targetId,
+          emoji: 'arrows_counterclockwise',
+          by: _self,
+          ts: '2',
+        ),
       );
-      expect(out.wantsTurn, isFalse,
-          reason: 'The agent prompts with a reaction; it should not re-wake itself.');
+      expect(
+        out.wantsTurn,
+        isFalse,
+        reason:
+            'The agent prompts with a reaction; it should not re-wake itself.',
+      );
     });
 
     test('inbound edit by human asks for a turn', () {
@@ -112,25 +124,27 @@ void main() {
       expect(out.wantsTurn, isFalse);
     });
 
-    test('withdraw records the Withdrawal and asks for a turn when foreign',
-        () {
-      final msgId = mirror.write(
-        _path,
-        SlackMessage(channel: 'C01', ts: '1', by: _human, text: 'edit this'),
-      );
-      final reactionId = mirror.write(
-        _path,
-        SlackReaction(target: msgId, emoji: 'thumbsup', by: _human, ts: '2'),
-      );
-      final w = Withdrawal<SlackReaction>(target: reactionId, by: _human);
-      final out = receiver.withdraw(_path, w);
+    test(
+      'withdraw records the Withdrawal and asks for a turn when foreign',
+      () {
+        final msgId = mirror.write(
+          _path,
+          SlackMessage(channel: 'C01', ts: '1', by: _human, text: 'edit this'),
+        );
+        final reactionId = mirror.write(
+          _path,
+          SlackReaction(target: msgId, emoji: 'thumbsup', by: _human, ts: '2'),
+        );
+        final w = Withdrawal<SlackReaction>(target: reactionId, by: _human);
+        final out = receiver.withdraw(_path, w);
 
-      expect(out.withdrew, reactionId);
-      expect(out.path, equals(_path));
-      expect(out.epoch, 1);
-      expect(out.wantsTurn, isTrue);
-      expect(mirror.withdrawnBy(reactionId), same(w));
-    });
+        expect(out.withdrew, reactionId);
+        expect(out.path, equals(_path));
+        expect(out.epoch, 1);
+        expect(out.wantsTurn, isTrue);
+        expect(mirror.withdrawnBy(reactionId), same(w));
+      },
+    );
 
     test('self-authored withdraw does not ask for a turn', () {
       final msgId = mirror.write(
@@ -154,18 +168,24 @@ void main() {
     });
 
     test(
-        'a second delivery of the same content does not ask for a second turn',
-        () {
-      // Mirrors Slack's own app_mention + plain-message pair for one
-      // @-mention: two distinct, correctly-signed deliveries, identical
-      // content.
-      final node = SlackMessage(channel: 'C01', ts: '1', by: _human, text: 'hi');
-      final first = receiver.receive(_path, node);
-      final second = receiver.receive(_path, node);
-      expect(first.wantsTurn, isTrue);
-      expect(second.wantsTurn, isFalse);
-      expect(second.mirroredAs, equals(first.mirroredAs));
-    });
+      'a second delivery of the same content does not ask for a second turn',
+      () {
+        // Mirrors Slack's own app_mention + plain-message pair for one
+        // @-mention: two distinct, correctly-signed deliveries, identical
+        // content.
+        final node = SlackMessage(
+          channel: 'C01',
+          ts: '1',
+          by: _human,
+          text: 'hi',
+        );
+        final first = receiver.receive(_path, node);
+        final second = receiver.receive(_path, node);
+        expect(first.wantsTurn, isTrue);
+        expect(second.wantsTurn, isFalse);
+        expect(second.mirroredAs, equals(first.mirroredAs));
+      },
+    );
 
     test('two kickoffs on the same path mint independent records', () {
       final a = receiver.receive(

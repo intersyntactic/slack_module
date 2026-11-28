@@ -14,14 +14,13 @@ SlackMessage _msg({
   ActorId? by,
   String? threadTs,
   String channel = 'C01',
-}) =>
-    SlackMessage(
-      channel: channel,
-      ts: ts,
-      by: by ?? _actor(),
-      text: text,
-      threadTs: threadTs,
-    );
+}) => SlackMessage(
+  channel: channel,
+  ts: ts,
+  by: by ?? _actor(),
+  text: text,
+  threadTs: threadTs,
+);
 
 void main() {
   group('InMemoryRecordsAndFindsSlackNodes', () {
@@ -70,7 +69,10 @@ void main() {
     test('id changes with the node\'s own fields, not its path', () {
       final m = InMemoryRecordsAndFindsSlackNodes();
       final rootA = m.write(_path(), _msg(ts: 'root-a'));
-      final rootB = m.write(_path(channel: 'C02'), _msg(ts: 'root-a', channel: 'C02'));
+      final rootB = m.write(
+        _path(channel: 'C02'),
+        _msg(ts: 'root-a', channel: 'C02'),
+      );
       // Same ts, but a different channel field → different content → different id.
       expect(rootA, isNot(equals(rootB)));
     });
@@ -152,10 +154,7 @@ void main() {
     test('findReaction returns null when target is unknown', () {
       final m = InMemoryRecordsAndFindsSlackNodes();
       final fakeId = TurnId.parse('0' * 64)!;
-      expect(
-        m.findReaction(target: fakeId, emoji: 'x', by: _actor()),
-        isNull,
-      );
+      expect(m.findReaction(target: fakeId, emoji: 'x', by: _actor()), isNull);
     });
 
     test('findReaction returns null when no matching reaction exists', () {

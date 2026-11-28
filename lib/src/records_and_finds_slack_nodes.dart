@@ -178,8 +178,7 @@ final class InMemoryRecordsAndFindsSlackNodes
     required TurnId target,
     required String emoji,
     required ActorId by,
-  }) =>
-      _byReaction[_reactionKey(target, emoji, by)];
+  }) => _byReaction[_reactionKey(target, emoji, by)];
 
   @override
   void writeWithdraw(Withdrawal<SlackReaction> withdraw) {
@@ -196,13 +195,13 @@ final class InMemoryRecordsAndFindsSlackNodes
 /// `SlackTombstone` is deliberately excluded (its ts is the deletion event's
 /// ts, which is seldom asked for by `(channel, ts)` and would shadow nothing).
 String? _channelTsKey(SlackNode node) => switch (node) {
-      SlackMessage(:final channel, :final ts) => '$channel\u0000$ts',
-      SlackEdit(:final channel, :final editTs) => '$channel\u0000$editTs',
-      SlackEventRaw(:final channel, :final ts) =>
-          channel.isEmpty ? null : '$channel\u0000$ts',
-      SlackReaction() => null,
-      SlackTombstone() => null,
-    };
+  SlackMessage(:final channel, :final ts) => '$channel\u0000$ts',
+  SlackEdit(:final channel, :final editTs) => '$channel\u0000$editTs',
+  SlackEventRaw(:final channel, :final ts) =>
+    channel.isEmpty ? null : '$channel\u0000$ts',
+  SlackReaction() => null,
+  SlackTombstone() => null,
+};
 
 String _reactionKey(TurnId target, String emoji, ActorId by) =>
     '$target\u0000$emoji\u0000$by';
@@ -224,54 +223,50 @@ TurnId _mintId(SlackNode node) {
 }
 
 (String, Map<String, Object?>) _encode(SlackNode node) => switch (node) {
-      SlackMessage() => (
-          'slack_message',
-          {
-            'by': node.by.toString(),
-            'channel': node.channel,
-            'text': node.text,
-            'thread_ts': node.threadTs,
-            'ts': node.ts,
-          },
-        ),
-      SlackEdit() => (
-          'slack_edit',
-          {
-            'by': node.by.toString(),
-            'channel': node.channel,
-            'edit_ts': node.editTs,
-            'new_text': node.newText,
-            'replaces': node.replaces.toString(),
-          },
-        ),
-      SlackReaction() => (
-          'slack_reaction',
-          {
-            'by': node.by.toString(),
-            'emoji': node.emoji,
-            'target': node.target.toString(),
-            'ts': node.ts,
-          },
-        ),
-      SlackTombstone() => (
-          'slack_tombstone',
-          {
-            'by': node.by.toString(),
-            'target': node.target.toString(),
-            'ts': node.ts,
-          },
-        ),
-      SlackEventRaw() => (
-          'slack_event_raw',
-          {
-            'by': node.by?.toString(),
-            'channel': node.channel,
-            'raw_payload': node.rawPayload,
-            'slack_event_type': node.slackEventType,
-            'ts': node.ts,
-          },
-        ),
-    };
+  SlackMessage() => (
+    'slack_message',
+    {
+      'by': node.by.toString(),
+      'channel': node.channel,
+      'text': node.text,
+      'thread_ts': node.threadTs,
+      'ts': node.ts,
+    },
+  ),
+  SlackEdit() => (
+    'slack_edit',
+    {
+      'by': node.by.toString(),
+      'channel': node.channel,
+      'edit_ts': node.editTs,
+      'new_text': node.newText,
+      'replaces': node.replaces.toString(),
+    },
+  ),
+  SlackReaction() => (
+    'slack_reaction',
+    {
+      'by': node.by.toString(),
+      'emoji': node.emoji,
+      'target': node.target.toString(),
+      'ts': node.ts,
+    },
+  ),
+  SlackTombstone() => (
+    'slack_tombstone',
+    {'by': node.by.toString(), 'target': node.target.toString(), 'ts': node.ts},
+  ),
+  SlackEventRaw() => (
+    'slack_event_raw',
+    {
+      'by': node.by?.toString(),
+      'channel': node.channel,
+      'raw_payload': node.rawPayload,
+      'slack_event_type': node.slackEventType,
+      'ts': node.ts,
+    },
+  ),
+};
 
 /// Sorted-key JSON, no whitespace. Given the same node, two runs mint the
 /// same id (across processes, across machines). `dart:convert`'s `jsonEncode`

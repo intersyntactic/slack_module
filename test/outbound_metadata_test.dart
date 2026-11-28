@@ -13,18 +13,17 @@ Map<String, dynamic> _stamped({
   String threadTs = '1730000000.000100',
   int epoch = 1,
   String? eventType,
-}) =>
-    {
-      'metadata': {
-        'event_type': eventType ?? intersyntacticSlackReplyEventType,
-        'event_payload': {
-          'workspace': workspace,
-          'channel': channel,
-          'thread_ts': threadTs,
-          'epoch': epoch,
-        },
-      },
-    };
+}) => {
+  'metadata': {
+    'event_type': eventType ?? intersyntacticSlackReplyEventType,
+    'event_payload': {
+      'workspace': workspace,
+      'channel': channel,
+      'thread_ts': threadTs,
+      'epoch': epoch,
+    },
+  },
+};
 
 void main() {
   group('extractIntersyntacticStamp', () {
@@ -84,12 +83,15 @@ void main() {
 
     test('newer epoch than local → not foreign (we are the zombie here)', () {
       final stamp = IntersyntacticStamp(path: _path, epoch: 3);
-      expect(stamp.isForeign(localEpoch: 2), isFalse,
-          reason:
-              'A newer stamp means another receiver has taken over; this '
-              'receiver is itself stale. The right response is NOT to drop '
-              'the message as foreign — the message is correct, we are '
-              'behind. The foreign-drop logic is one-way on purpose.');
+      expect(
+        stamp.isForeign(localEpoch: 2),
+        isFalse,
+        reason:
+            'A newer stamp means another receiver has taken over; this '
+            'receiver is itself stale. The right response is NOT to drop '
+            'the message as foreign — the message is correct, we are '
+            'behind. The foreign-drop logic is one-way on purpose.',
+      );
     });
   });
 }

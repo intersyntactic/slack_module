@@ -33,7 +33,10 @@ void main() {
       // future edit that drops `implements Withdrawable` from SlackReaction
       // would otherwise only be caught wherever a Withdrawal<SlackReaction>
       // happens to get constructed, which might be nowhere for a while.
-      final by = SlackActorId.forWorkspace(workspaceId: 'T01ABC', userId: 'U01ABC234XY');
+      final by = SlackActorId.forWorkspace(
+        workspaceId: 'T01ABC',
+        userId: 'U01ABC234XY',
+      );
       final r = SlackReaction(
         target: TurnId.parse('4' * 64)!,
         emoji: 'eyes',

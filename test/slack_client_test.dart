@@ -9,36 +9,42 @@ class FakeSender {
   final List<SlackHttpRequest> seen = [];
 
   void respondOk(Map<String, dynamic> payload) {
-    responses.add(SlackHttpResponse(
-      statusCode: 200,
-      headers: const {},
-      body: jsonEncode({'ok': true, ...payload}),
-    ));
+    responses.add(
+      SlackHttpResponse(
+        statusCode: 200,
+        headers: const {},
+        body: jsonEncode({'ok': true, ...payload}),
+      ),
+    );
   }
 
   void respondError(String error) {
-    responses.add(SlackHttpResponse(
-      statusCode: 200,
-      headers: const {},
-      body: jsonEncode({'ok': false, 'error': error}),
-    ));
+    responses.add(
+      SlackHttpResponse(
+        statusCode: 200,
+        headers: const {},
+        body: jsonEncode({'ok': false, 'error': error}),
+      ),
+    );
   }
 
   void respondRateLimit({int retryAfter = 1}) {
-    responses.add(SlackHttpResponse(
-      statusCode: 429,
-      headers: {'retry-after': '$retryAfter'},
-      body: '',
-    ));
+    responses.add(
+      SlackHttpResponse(
+        statusCode: 429,
+        headers: {'retry-after': '$retryAfter'},
+        body: '',
+      ),
+    );
   }
 
   SlackSend get send => (req) async {
-        seen.add(req);
-        if (responses.isEmpty) {
-          throw StateError('no programmed response for ${req.method} ${req.url}');
-        }
-        return responses.removeFirst();
-      };
+    seen.add(req);
+    if (responses.isEmpty) {
+      throw StateError('no programmed response for ${req.method} ${req.url}');
+    }
+    return responses.removeFirst();
+  };
 }
 
 class Queue<T> {
@@ -50,52 +56,57 @@ class Queue<T> {
 
 void main() {
   group('SlackClient — call shape', () {
-    test('chatPostMessage sends JSON with bearer auth and returns ts', () async {
-      final fake = FakeSender();
-      final client = SlackClient(token: 'xoxb-X', sender: fake.send);
-      fake.respondOk({'ts': '1700000000.000500'});
+    test(
+      'chatPostMessage sends JSON with bearer auth and returns ts',
+      () async {
+        final fake = FakeSender();
+        final client = SlackClient(token: 'xoxb-X', sender: fake.send);
+        fake.respondOk({'ts': '1700000000.000500'});
 
-      final ts = await client.chatPostMessage(
-        channel: 'C1',
-        text: 'hello',
-        threadTs: '1700000000.000100',
-      );
-      expect(ts, '1700000000.000500');
+        final ts = await client.chatPostMessage(
+          channel: 'C1',
+          text: 'hello',
+          threadTs: '1700000000.000100',
+        );
+        expect(ts, '1700000000.000500');
 
-      final req = fake.seen.single;
-      expect(req.method, 'POST');
-      expect(req.url.toString(), endsWith('/chat.postMessage'));
-      expect(req.headers['Authorization'], 'Bearer xoxb-X');
-      expect(req.headers['Content-Type'], contains('application/json'));
-      expect(jsonDecode(utf8.decode(req.body)), {
-        'channel': 'C1',
-        'text': 'hello',
-        'thread_ts': '1700000000.000100',
-      });
-    });
+        final req = fake.seen.single;
+        expect(req.method, 'POST');
+        expect(req.url.toString(), endsWith('/chat.postMessage'));
+        expect(req.headers['Authorization'], 'Bearer xoxb-X');
+        expect(req.headers['Content-Type'], contains('application/json'));
+        expect(jsonDecode(utf8.decode(req.body)), {
+          'channel': 'C1',
+          'text': 'hello',
+          'thread_ts': '1700000000.000100',
+        });
+      },
+    );
 
-    test('reactionsAdd posts to reactions.add with channel/timestamp/name',
-        () async {
-      final fake = FakeSender();
-      final client = SlackClient(token: 'xoxb-X', sender: fake.send);
-      fake.respondOk(const {});
+    test(
+      'reactionsAdd posts to reactions.add with channel/timestamp/name',
+      () async {
+        final fake = FakeSender();
+        final client = SlackClient(token: 'xoxb-X', sender: fake.send);
+        fake.respondOk(const {});
 
-      await client.reactionsAdd(
-        channel: 'C1',
-        ts: '1700000000.000500',
-        name: 'arrows_counterclockwise',
-      );
+        await client.reactionsAdd(
+          channel: 'C1',
+          ts: '1700000000.000500',
+          name: 'arrows_counterclockwise',
+        );
 
-      final req = fake.seen.single;
-      expect(req.method, 'POST');
-      expect(req.url.toString(), endsWith('/reactions.add'));
-      expect(req.headers['Authorization'], 'Bearer xoxb-X');
-      expect(jsonDecode(utf8.decode(req.body)), {
-        'channel': 'C1',
-        'timestamp': '1700000000.000500',
-        'name': 'arrows_counterclockwise',
-      });
-    });
+        final req = fake.seen.single;
+        expect(req.method, 'POST');
+        expect(req.url.toString(), endsWith('/reactions.add'));
+        expect(req.headers['Authorization'], 'Bearer xoxb-X');
+        expect(jsonDecode(utf8.decode(req.body)), {
+          'channel': 'C1',
+          'timestamp': '1700000000.000500',
+          'name': 'arrows_counterclockwise',
+        });
+      },
+    );
 
     test('conversationsReplies pages through next_cursor', () async {
       final fake = FakeSender();
@@ -129,8 +140,13 @@ void main() {
       fake.respondError('channel_not_found');
       await expectLater(
         client.chatPostMessage(channel: 'C_BAD', text: 'x'),
-        throwsA(isA<SlackApiError>()
-            .having((e) => e.error, 'error', 'channel_not_found')),
+        throwsA(
+          isA<SlackApiError>().having(
+            (e) => e.error,
+            'error',
+            'channel_not_found',
+          ),
+        ),
       );
     });
 
@@ -140,42 +156,46 @@ void main() {
       fake.respondRateLimit(retryAfter: 3);
       await expectLater(
         client.chatUpdate(channel: 'C1', ts: '1', text: 'x'),
-        throwsA(isA<SlackApiError>()
-            .having((e) => e.retryAfterSeconds, 'retryAfter', 3)
-            .having((e) => e.error, 'error', 'rate_limited')),
+        throwsA(
+          isA<SlackApiError>()
+              .having((e) => e.retryAfterSeconds, 'retryAfter', 3)
+              .having((e) => e.error, 'error', 'rate_limited'),
+        ),
       );
     });
   });
 
   group('SlackMessageStream — pacing and final flush', () {
-    test('close flushes the final buffer even without a timer elapsing',
-        () async {
-      final fake = FakeSender();
-      final client = SlackClient(token: 'xoxb-X', sender: fake.send);
-      // open() posts, then each flush updates. Clock stays frozen so no
-      // intermediate flush fires via the Timer.
-      fake.respondOk({'ts': '1700000000.000500'}); // chat.postMessage
-      fake.respondOk({}); // chat.update at close
+    test(
+      'close flushes the final buffer even without a timer elapsing',
+      () async {
+        final fake = FakeSender();
+        final client = SlackClient(token: 'xoxb-X', sender: fake.send);
+        // open() posts, then each flush updates. Clock stays frozen so no
+        // intermediate flush fires via the Timer.
+        fake.respondOk({'ts': '1700000000.000500'}); // chat.postMessage
+        fake.respondOk({}); // chat.update at close
 
-      final at = DateTime.utc(2026, 10, 23, 12, 0, 0);
-      final stream = await SlackMessageStream.open(
-        client: client,
-        channel: 'C1',
-        threadTs: '1700000000.000100',
-        initialText: '…',
-        now: () => at,
-      );
-      stream.append('hello ');
-      stream.append('world');
-      await stream.close();
+        final at = DateTime.utc(2026, 10, 23, 12, 0, 0);
+        final stream = await SlackMessageStream.open(
+          client: client,
+          channel: 'C1',
+          threadTs: '1700000000.000100',
+          initialText: '…',
+          now: () => at,
+        );
+        stream.append('hello ');
+        stream.append('world');
+        await stream.close();
 
-      final posts = fake.seen.where((r) => r.method == 'POST').toList();
-      expect(posts, hasLength(2));
-      final update = jsonDecode(utf8.decode(posts.last.body)) as Map;
-      expect(update['text'], '…hello world');
-      expect(update['channel'], 'C1');
-      expect(update['ts'], '1700000000.000500');
-    });
+        final posts = fake.seen.where((r) => r.method == 'POST').toList();
+        expect(posts, hasLength(2));
+        final update = jsonDecode(utf8.decode(posts.last.body)) as Map;
+        expect(update['text'], '…hello world');
+        expect(update['channel'], 'C1');
+        expect(update['ts'], '1700000000.000500');
+      },
+    );
 
     test('no update is sent when nothing was appended', () async {
       final fake = FakeSender();
