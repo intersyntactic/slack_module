@@ -3,11 +3,7 @@ import 'dart:typed_data';
 import 'package:is_annotation_shapes/is_annotation_shapes.dart'
     show ApprovedVerdict, HeldOffVerdict, VerdictOnShownMessage;
 import 'package:is_conversation_vocabulary/is_conversation_vocabulary.dart'
-    show
-        ConversationKind,
-        RepliesWithPinnedBodyFields,
-        SourceMessageId,
-        UserSaid;
+    show ConversationKind, RepliesWithPinnedBodyFields, UserSaid;
 import 'package:is_docking_station_api/is_docking_station_api.dart';
 import 'package:is_shapes/is_shapes.dart' show ActorId;
 import 'package:is_slack_relay/is_slack_relay.dart' as relay;
@@ -88,7 +84,7 @@ final class SlackEventTranslator
           if (place == null || ts == null || !_isSaid(event.subtype)) {
             return null;
           }
-          final source = SourceMessageId.parse('${event.channel}|$ts');
+          final source = slackSourceMessageId(event.channel, ts);
           final key = EventKey.parse('message:$ts');
           final text = _withoutMentionOf(
             event.deliveredForUser,
@@ -113,7 +109,7 @@ final class SlackEventTranslator
       case relay.SlackReactionAdded():
         final shown = state._shown[(event.channel, event.targetTs)];
         final verdict = SlackVerdictReaction.parse(event.reaction)?.verdict;
-        final to = SourceMessageId.parse('${event.channel}|${event.targetTs}');
+        final to = slackSourceMessageId(event.channel, event.targetTs);
         final key = EventKey.parse(
           'reaction:${event.targetTs}:${event.user}:${event.eventTs}',
         );

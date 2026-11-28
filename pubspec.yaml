@@ -11,6 +11,9 @@ publish_to: none
 environment:
   sdk: ^3.13.0
 
+executables:
+  slack-reply-drawing: slack_reply_drawing
+
 dependencies:
   checked_json: ^0.4.0
   is_airlock_api: ^0.25.0
@@ -20,6 +23,7 @@ dependencies:
   is_effects: ^0.19.0
   is_logbook_client: ^0.4.0
   is_shapes: ^0.6.0
+  is_sign_in_vocabulary: ^0.1.0
   is_slack_relay: ^0.6.0
   is_web_address_vocabulary: ^0.1.2
 

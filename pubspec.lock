@@ -250,7 +250,7 @@ packages:
     source: hosted
     version: "0.6.0"
   is_sign_in_vocabulary:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: is_sign_in_vocabulary
       sha256: dfffa15f57f7fb076e89aca0d27e33def3b2786efa730ee0c6cbca5473aefb15
