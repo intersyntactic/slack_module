@@ -17,9 +17,9 @@ import 'slack_reply_endpoint.dart';
 ///
 /// - A message from a person, or from a bot that isn't ours, such as CI
 ///   posting a deploy, is [MessageSaid], with the [ConversationKind] of the
-///   conversation it was said in. A mention arrives twice, as `app_mention`
-///   and as `message`; only the `message` is admitted, since `app_mention`
-///   names no channel type and so no kind.
+///   conversation it was said in and whether it is for our bot. A mention
+///   arrives twice, as `app_mention` and as `message`; only the `message`
+///   is admitted, since `app_mention` names no channel type and so no kind.
 /// - A message from our own bot, the user Slack delivered the event for, is
 ///   [NothingToAdmit], but remembered as something shown, so a reaction on
 ///   it can be a verdict. A bot's message when Slack named no user it was
@@ -97,6 +97,7 @@ final class SlackEventTranslator
             addressedTo: addressedTo,
             replyEndpoint: place.reply,
             conversationKind: _kindOf(event.channelType),
+            forTheAgent: _whetherForTheAgent(event, place, state),
             key: key,
             node: UserSaid(
               author: _actor(event, id),
@@ -138,6 +139,34 @@ final class SlackEventTranslator
       case relay.SlackReactionRemoved() || relay.SlackCommand():
         return null;
     }
+  }
+
+  /// Whether [m], said at [place], is for our bot. Slack delivers every
+  /// message in a conversation the bot is in, so outside a DM it is for the
+  /// bot only when it mentions it anywhere in its text, or is in a thread
+  /// our bot has posted in, its own top-level post's included. Not known
+  /// when the channel type isn't, since it may be a DM, or when Slack named
+  /// no bot to look for a mention of.
+  static WhetherForTheAgent _whetherForTheAgent(
+    relay.SlackMessage m,
+    _SlackPlace place,
+    SlackEventTranslatorState state,
+  ) {
+    if (_kindOf(m.channelType) == ConversationKind.oneToOne) {
+      return WhetherForTheAgent.everyMessageHereIsForTheAgent;
+    }
+    if (m.deliveredForUser case final bot?
+        when RegExp('<@${RegExp.escape(bot)}(\\|[^>]*)?>')
+            .hasMatch(m.text ?? '')) {
+      return WhetherForTheAgent.mentionsTheAgent;
+    }
+    if (state._threadsPostedIn.contains(place.address)) {
+      return WhetherForTheAgent.repliesToTheAgent;
+    }
+    if (m.channelType == null || m.deliveredForUser == null) {
+      return WhetherForTheAgent.notKnown;
+    }
+    return WhetherForTheAgent.neitherMentionsNorRepliesToTheAgent;
   }
 
   /// The kind of conversation Slack's channel type names; [type] is null
@@ -309,12 +338,16 @@ final class _SlackPlace {
 ///
 /// Never changed: [learnt] gives a new one when there is something new.
 final class SlackEventTranslatorState {
-  const SlackEventTranslatorState._(this._shown);
+  const SlackEventTranslatorState._(this._shown, this._threadsPostedIn);
 
   /// Before any event.
-  static const empty = SlackEventTranslatorState._({});
+  static const empty = SlackEventTranslatorState._({}, {});
 
   final Map<(String, String), _SlackPlace> _shown;
+
+  /// The addresses of the threads our bot has posted in, its own top-level
+  /// posts' included, since each anchors a thread.
+  final Set<AddressInExternalSystem> _threadsPostedIn;
 
   /// This, with [event] remembered when it is our bot's message.
   SlackEventTranslatorState learnt(relay.SlackEvent event) {
@@ -324,6 +357,7 @@ final class SlackEventTranslatorState {
       if (place == null) return this;
       return SlackEventTranslatorState._(
         Map.unmodifiable({..._shown, (event.channel, eventTs): place}),
+        Set.unmodifiable({..._threadsPostedIn, place.address}),
       );
     }
     return this;

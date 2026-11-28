@@ -19,7 +19,7 @@ dependencies:
   is_airlock_api: ^0.25.0
   is_annotation_shapes: ^0.5.0
   is_conversation_vocabulary: ^0.2.0
-  is_docking_station_api: ^0.10.0
+  is_docking_station_api: ^0.11.0
   is_effects: ^0.19.0
   is_logbook_client: ^0.4.0
   is_shapes: ^0.6.0
@@ -30,7 +30,7 @@ dependencies:
 # TEMPORARY until is_slack_relay 0.7.0 is on checked_json ^0.4.0: never merge.
 dependency_overrides:
   checked_json: ^0.4.0
-  is_docking_station_api: ^0.10.0
+  is_docking_station_api: ^0.11.0
 
 dev_dependencies:
   is_content_id: ^0.2.0
