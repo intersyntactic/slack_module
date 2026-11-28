@@ -253,10 +253,10 @@ packages:
     dependency: "direct main"
     description:
       name: is_sign_in_vocabulary
-      sha256: dfffa15f57f7fb076e89aca0d27e33def3b2786efa730ee0c6cbca5473aefb15
+      sha256: eaef104c04292032d8abd20a06232906b264b03c06270fd0ca01c47ae813b689
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.0"
+    version: "0.1.2"
   is_slack_relay:
     dependency: "direct main"
     description:
