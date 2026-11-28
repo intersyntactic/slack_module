@@ -2,7 +2,8 @@ import 'dart:typed_data';
 
 import 'package:checked_json/checked_json.dart' show JsonObject;
 import 'package:is_conversation_vocabulary/is_conversation_vocabulary.dart';
-import 'package:is_effects/is_effects.dart';
+import 'package:is_outcome_vocabulary/is_outcome_vocabulary.dart';
+import 'package:is_web_request_vocabulary/is_web_request_vocabulary.dart';
 import 'package:is_shapes/is_shapes.dart' show TrajectoryId;
 import 'package:is_slack_module/is_slack_module.dart'
     show

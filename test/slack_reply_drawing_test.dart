@@ -5,8 +5,8 @@ import 'package:is_content_id/is_content_id.dart' show ObjectId;
 import 'package:is_conversation_vocabulary/is_conversation_vocabulary.dart'
     show encodeReplyEndpoint;
 import 'package:is_docking_station_api/is_docking_station_api.dart';
-import 'package:is_effects/is_effects.dart';
 import 'package:is_slack_module/is_slack_module.dart';
+import 'package:is_web_request_vocabulary/is_web_request_vocabulary.dart';
 import 'package:is_slack_relay/is_slack_relay.dart' as relay;
 import 'package:test/test.dart';
 
