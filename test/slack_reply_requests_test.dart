@@ -1,31 +1,34 @@
 import 'dart:typed_data';
 
 import 'package:checked_json/checked_json.dart' show JsonObject;
+import 'package:is_conversation_vocabulary/is_conversation_vocabulary.dart';
 import 'package:is_effects/is_effects.dart';
-import 'package:is_reply_vocabulary/is_reply_vocabulary.dart';
 import 'package:is_shapes/is_shapes.dart' show TrajectoryId;
-import 'package:is_slack_module/is_slack_module.dart' show SlackReplyRequests;
-import 'package:is_web_address_vocabulary/is_web_address_vocabulary.dart';
+import 'package:is_slack_module/is_slack_module.dart'
+    show
+        SlackChannelId,
+        SlackMessageTimestamp,
+        SlackReplyRequests,
+        slackReplyEndpoint;
 import 'package:test/test.dart';
 
 /// The wire contract with Slack's `chat.postMessage`: what is sent, and
 /// how each answer is read.
 void main() {
   const writer = SlackReplyRequests();
-  final slack = Origin.parse('https://slack.com')!;
   final trajectory = TrajectoryId.of(Uint8List.fromList([1]));
-  final inThread = RepliesInSlackConversation(
-    origin: slack,
-    channel: SlackChannelId.parse('C0DEPLOYS')!,
+  final inThread = slackReplyEndpoint(
+    SlackChannelId.parse('C0DEPLOYS')!,
     thread: SlackMessageTimestamp.parse('1800000001.000100'),
   );
+  final inDm = slackReplyEndpoint(SlackChannelId.parse('D0ADA')!);
 
   List<ProposedRequest> draw(
     String text, {
     String? footer,
-    ReplyEndpoint? to,
+    RepliesWithPinnedBodyFields? to,
   }) => writer.draw(
-    (to ?? inThread) as RepliesInSlackConversation,
+    to ?? inThread,
     trajectory,
     ReplyContent(
       text: ReplyText.parse(text)!,
@@ -35,9 +38,19 @@ void main() {
 
   JsonObject sent(ProposedRequest r) => JsonObject.decode(r.body!);
 
+  bool admits(RepliesWithPinnedBodyFields to, ProposedRequest r) =>
+      to.admitsAddress(r.origin, r.path) &&
+      to.admitsBody(contentType: r.headers['content-type']!, body: r.body!);
+
+  test('it writes to chat.postMessage on slack.com, and nowhere else', () {
+    expect(writer.addresses.map((a) => '${a.origin}${a.path.value}'), [
+      'https://slack.com/api/chat.postMessage',
+    ]);
+  });
+
   test('a reply is one POST the endpoint admits, with no sign-in', () {
     final [r] = draw('staging passed step 1');
-    expect(inThread.admitsAddress(r.origin, r.path), isTrue);
+    expect(admits(inThread, r), isTrue);
     expect(r.method, Method.post);
     expect(r.path.value, '/api/chat.postMessage');
     expect(r.signIn, isNull);
@@ -49,15 +62,37 @@ void main() {
     });
   });
 
-  test('a DM names no thread', () {
-    final [r] = draw(
-      'hi',
-      to: RepliesInSlackConversation(
-        origin: slack,
-        channel: SlackChannelId.parse('D0ADA')!,
-      ),
-    );
+  test('a DM names no thread, and its endpoint admits the reply', () {
+    final [r] = draw('hi', to: inDm);
     expect(sent(r).has('thread_ts'), isFalse);
+    expect(admits(inDm, r), isTrue);
+  });
+
+  test('an endpoint admits no field but its pinned ones and text', () {
+    const json = 'application/json';
+    for (final extra in [
+      ',"thread_ts":"1800000009.000900"',
+      ',"reply_broadcast":true',
+      ',"link_names":true',
+      ',"username":"Nick"',
+      ',"blocks":[]',
+    ]) {
+      expect(
+        inDm.admitsBody(
+          contentType: json,
+          body: '{"channel":"D0ADA","text":"hi"$extra}',
+        ),
+        isFalse,
+        reason: extra,
+      );
+    }
+    expect(
+      inDm.admitsBody(
+        contentType: json,
+        body: '{"channel":"D0ADA","text":"hi"}',
+      ),
+      isTrue,
+    );
   });
 
   test('mentions in the text are shown as written, never pinging', () {
@@ -107,7 +142,7 @@ void main() {
     test('ok with a ts ran', () {
       final o = writer.posted(ok('{"ok":true,"ts":"1800000002.000200"}'));
       expect(
-        (o as Ran<SlackMessageTimestamp>).output.value,
+        (o as Ran<ServerAssignedMessageId>).output.value,
         '1800000002.000200',
       );
     });
@@ -131,8 +166,8 @@ void main() {
         ok('{"ts":"1800000002.000200"}'),
       ]) {
         final o = writer.posted(r);
-        expect(o, isA<StoppedPartway<SlackMessageTimestamp>>());
-        expect((o as StoppedPartway<SlackMessageTimestamp>).done, isNull);
+        expect(o, isA<StoppedPartway<ServerAssignedMessageId>>());
+        expect((o as StoppedPartway<ServerAssignedMessageId>).done, isNull);
       }
     });
   });

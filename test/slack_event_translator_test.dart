@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:is_annotation_shapes/is_annotation_shapes.dart'
     show ApprovedVerdict, HeldOffVerdict;
 import 'package:is_content_id/is_content_id.dart' show ObjectId;
+import 'package:is_conversation_vocabulary/is_conversation_vocabulary.dart'
+    show ConversationKind, RepliesWithPinnedBodyFields;
 import 'package:is_docking_station_api/is_docking_station_api.dart';
 import 'package:is_slack_module/is_slack_module.dart';
 import 'package:is_slack_relay/is_slack_relay.dart' as relay;
@@ -26,7 +28,9 @@ relay.SlackMessage said({
   String? botId,
   String? deliveredForUser = ourBot,
   String? enterprise,
+  bool mention = false,
 }) => relay.SlackMessage(
+  mention: mention,
   workspace: team,
   channel: inChannel,
   threadTs: threadTs ?? ts,
@@ -68,9 +72,26 @@ relay.SlackReactionAdded reacted(
 /// Where [e]'s replies go in Slack, `<channel>/<thread>` or `<channel>`;
 /// null when it names no Slack conversation.
 String? replyTo(AddressedEvent e) => switch (e.replyEndpoint) {
-  RepliesInSlackConversation(:final channel, :final thread) =>
-    thread == null ? channel.value : '${channel.value}/${thread.value}',
+  final RepliesWithPinnedBodyFields to
+      when to == slackReplyEndpointFrom(to.pinned.mustEqual) =>
+    [
+      to.pinned.mustEqual['channel'],
+      ?to.pinned.mustEqual['thread_ts'],
+    ].join('/'),
   _ => null,
+};
+
+/// The endpoint [slackReplyEndpoint] makes for [fields]' channel and
+/// thread, to check an endpoint is exactly one it makes; null when [fields]
+/// name no Slack channel.
+RepliesWithPinnedBodyFields? slackReplyEndpointFrom(
+  Map<String, String> fields,
+) => switch (SlackChannelId.parse(fields['channel'] ?? '')) {
+  final channel? => slackReplyEndpoint(
+    channel,
+    thread: SlackMessageTimestamp.parse(fields['thread_ts'] ?? ''),
+  ),
+  null => null,
 };
 
 /// [bytes] as the docking station hands them over: recorded as the relay
@@ -136,9 +157,9 @@ void main() {
     expect(m.node.author.value, 'slack:$team/U0ADA');
     expect(m.node.source.value, '$channel|1800000001.000100');
     expect(m.key.value, 'message:1800000001.000100');
-    final reply = m.replyEndpoint as RepliesInSlackConversation;
-    expect(reply.origin, slackReplyOrigin);
+    expect(m.replyEndpoint?.origin, slackReplyOrigin);
     expect(replyTo(m), '$channel/1800000001.000100');
+    expect(m.conversationKind, ConversationKind.publicChannel);
   });
 
   test('a reply is said, and answered, in the thread it replies in', () {
@@ -153,34 +174,55 @@ void main() {
     expect(replyTo(t), '$channel/1800000001.000100');
   });
 
-  test('a mention, delivered as app_mention and message, has one key', () {
+  test('a mention is said once, from its message copy, with its kind', () {
     final [a, b] = fold([
+      // app_mention, which Slack sends with no channel type.
       said(
         ts: '1800000003.000100',
         text: '<@U0BOT> e2e please',
         channelType: null,
+        mention: true,
       ),
       said(ts: '1800000003.000100', text: '<@U0BOT> e2e please'),
     ]);
-    final (ma, mb) = (a as MessageSaid, b as MessageSaid);
-    expect(ma.key, mb.key);
-    expect(ma.addressInExternalSystem, mb.addressInExternalSystem);
-    expect(ma.node.text, 'e2e please');
+    expect(a, isA<NothingToAdmit>());
+    final m = b as MessageSaid;
+    expect(m.node.text, 'e2e please');
+    expect(m.conversationKind, ConversationKind.publicChannel);
   });
 
-  test('a DM is one address inside none', () {
-    final [t] = fold([
-      said(
-        ts: '1800000004.000100',
-        inChannel: dm,
-        channelType: relay.SlackChannelType.im,
-      ),
-    ]);
-    final m = t as MessageSaid;
-    expect(m.addressInExternalSystem.value, 'slack:$dm');
-    expect(m.containingAddress, isNull);
-    expect(replyTo(m), dm);
+  test('each Slack channel type is said as its kind of conversation', () {
+    final kinds = {
+      relay.SlackChannelType.channel: ConversationKind.publicChannel,
+      relay.SlackChannelType.group: ConversationKind.privateChannel,
+      relay.SlackChannelType.im: ConversationKind.oneToOne,
+      relay.SlackChannelType.appHome: ConversationKind.oneToOne,
+      relay.SlackChannelType.mpim: ConversationKind.groupChat,
+      null: ConversationKind.notKnown,
+    };
+    for (final MapEntry(key: type, value: kind) in kinds.entries) {
+      final [t] = fold([said(ts: '1800000005.000100', channelType: type)]);
+      expect((t as MessageSaid).conversationKind, kind, reason: '$type');
+    }
   });
+
+  test(
+    'a DM, the app\'s Messages tab included, is one address inside none',
+    () {
+      for (final type in [
+        relay.SlackChannelType.im,
+        relay.SlackChannelType.appHome,
+      ]) {
+        final [t] = fold([
+          said(ts: '1800000004.000100', inChannel: dm, channelType: type),
+        ]);
+        final m = t as MessageSaid;
+        expect(m.addressInExternalSystem.value, 'slack:$dm', reason: '$type');
+        expect(m.containingAddress, isNull, reason: '$type');
+        expect(replyTo(m), dm, reason: '$type');
+      }
+    },
+  );
 
   test('a CI bot\'s deploy post is said, by that bot', () {
     final [user, webhook] = fold([

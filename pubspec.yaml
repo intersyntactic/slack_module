@@ -12,17 +12,21 @@ environment:
   sdk: ^3.13.0
 
 dependencies:
-  is_annotation_shapes: ^0.3.2
-  is_conversation_shapes: ^0.8.3
-  checked_json: ^0.2.1
-  is_docking_station_api: ^0.7.0
-  is_effects: ^0.17.0
-  is_logbook_client: ^0.3.0
-  is_reply_requests_api: ^0.1.0
-  is_reply_vocabulary: ^0.2.1
+  checked_json: ^0.4.0
+  is_airlock_api: ^0.25.0
+  is_annotation_shapes: ^0.5.0
+  is_conversation_vocabulary: ^0.2.0
+  is_docking_station_api: ^0.10.0
+  is_effects: ^0.19.0
+  is_logbook_client: ^0.4.0
   is_shapes: ^0.6.0
-  is_slack_relay: ^0.5.0
+  is_slack_relay: ^0.6.0
   is_web_address_vocabulary: ^0.1.2
+
+# TEMPORARY until is_slack_relay 0.7.0 is on checked_json ^0.4.0: never merge.
+dependency_overrides:
+  checked_json: ^0.4.0
+  is_docking_station_api: ^0.10.0
 
 dev_dependencies:
   is_content_id: ^0.2.0

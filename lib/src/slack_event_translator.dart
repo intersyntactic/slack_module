@@ -2,28 +2,28 @@ import 'dart:typed_data';
 
 import 'package:is_annotation_shapes/is_annotation_shapes.dart'
     show ApprovedVerdict, HeldOffVerdict, VerdictOnShownMessage;
-import 'package:is_conversation_shapes/is_conversation_shapes.dart'
-    show SourceMessageId, UserSaid;
+import 'package:is_conversation_vocabulary/is_conversation_vocabulary.dart'
+    show
+        ConversationKind,
+        RepliesWithPinnedBodyFields,
+        SourceMessageId,
+        UserSaid;
 import 'package:is_docking_station_api/is_docking_station_api.dart';
 import 'package:is_shapes/is_shapes.dart' show ActorId;
 import 'package:is_slack_relay/is_slack_relay.dart' as relay;
-import 'package:is_web_address_vocabulary/is_web_address_vocabulary.dart'
-    show Origin;
 
 import 'slack_actor_id.dart';
-
-/// Where every Slack reply is sent: one site for every workspace, since the
-/// bot's sign-in names the workspace.
-final slackReplyOrigin = Origin.parse('https://slack.com')!;
+import 'slack_reply_endpoint.dart';
 
 /// The Slack module's translator, for the docking station: what each event
 /// the Slack relay recorded is, in the docking station's terms, in the
 /// logbook's order. It describes and decides nothing.
 ///
 /// - A message from a person, or from a bot that isn't ours, such as CI
-///   posting a deploy, is [MessageSaid]. A mention delivered both as
-///   `app_mention` and as `message` shares one key, `message:<ts>`, so the
-///   docking station decides it once.
+///   posting a deploy, is [MessageSaid], with the [ConversationKind] of the
+///   conversation it was said in. A mention arrives twice, as `app_mention`
+///   and as `message`; only the `message` is admitted, since `app_mention`
+///   names no channel type and so no kind.
 /// - A message from our own bot, the user Slack delivered the event for, is
 ///   [NothingToAdmit], but remembered as something shown, so a reaction on
 ///   it can be a verdict. A bot's message when Slack named no user it was
@@ -41,10 +41,10 @@ final slackReplyOrigin = Origin.parse('https://slack.com')!;
 /// inside none. Channel ids are global in Slack, so no workspace is in an
 /// address.
 ///
-/// Replies go to [RepliesInSlackConversation] at [slackReplyOrigin]: the
-/// event's channel, and its thread, which for a top-level post is the post
-/// itself. A DM with one person has no thread. A channel id Slack's reply
-/// can't name leaves the event with no reply endpoint.
+/// Replies go to [slackReplyEndpoint]: the event's channel, and its thread,
+/// which for a top-level post is the post itself. A DM with one person has
+/// no thread. A channel id Slack's reply can't name leaves the event with
+/// no reply endpoint.
 final class SlackEventTranslator
     implements TranslatesRelayedEvents<SlackEventTranslatorState> {
   const SlackEventTranslator({this.parse = relay.slackRecordedEvent});
@@ -79,6 +79,8 @@ final class SlackEventTranslator
       null => null,
     };
     switch (event) {
+      case relay.SlackMessage(mention: true):
+        return null;
       case relay.SlackMessage():
         if (_SlackSender.of(event) case _OtherSender(:final id)) {
           final place = _SlackPlace.of(event);
@@ -98,6 +100,7 @@ final class SlackEventTranslator
             containingAddress: place.containing,
             addressedTo: addressedTo,
             replyEndpoint: place.reply,
+            conversationKind: _kindOf(event.channelType),
             key: key,
             node: UserSaid(
               author: _actor(event, id),
@@ -140,6 +143,19 @@ final class SlackEventTranslator
         return null;
     }
   }
+
+  /// The kind of conversation Slack's channel type names; [type] is null
+  /// for one the relay doesn't name.
+  static ConversationKind _kindOf(relay.SlackChannelType? type) =>
+      switch (type) {
+        relay.SlackChannelType.channel => ConversationKind.publicChannel,
+        relay.SlackChannelType.group => ConversationKind.privateChannel,
+        // The app's Messages tab is a DM between one person and our bot.
+        relay.SlackChannelType.im ||
+        relay.SlackChannelType.appHome => ConversationKind.oneToOne,
+        relay.SlackChannelType.mpim => ConversationKind.groupChat,
+        null => ConversationKind.notKnown,
+      };
 
   /// A plain message, a `/me`, a thread reply also sent to the channel, a
   /// message with a file, or a bot's post: something said. An edit, a
@@ -260,16 +276,16 @@ final class _SlackPlace {
 
   final AddressInExternalSystem address;
   final AddressInExternalSystem? containing;
-  final RepliesInSlackConversation? reply;
+  final RepliesWithPinnedBodyFields? reply;
 
-  /// A DM with one person is one address; anywhere else, a group DM
-  /// included, each thread is one, inside its channel. An `app_mention`
-  /// names no channel type, and is never in a DM with one person, so it is
-  /// placed as its `message` copy is, wherever else it was sent.
+  /// A DM with one person, the app's Messages tab included, is one address;
+  /// anywhere else, a group DM included, each thread is one, inside its
+  /// channel.
   static _SlackPlace? of(relay.SlackMessage m) {
     final channel = AddressInExternalSystem.parse('slack:${m.channel}');
     if (channel == null) return null;
-    if (m.channelType == relay.SlackChannelType.im) {
+    if (m.channelType
+        case relay.SlackChannelType.im || relay.SlackChannelType.appHome) {
       return _SlackPlace(channel, null, _replyIn(m.channel, null));
     }
     final thread = AddressInExternalSystem.parse(
@@ -281,18 +297,12 @@ final class _SlackPlace {
 
   /// A reply in [channel], in [thread] unless that's null; null when Slack's
   /// reply can't name either.
-  static RepliesInSlackConversation? _replyIn(String channel, String? thread) {
+  static RepliesWithPinnedBodyFields? _replyIn(String channel, String? thread) {
     final id = SlackChannelId.parse(channel);
     if (id == null) return null;
-    if (thread == null) {
-      return RepliesInSlackConversation(origin: slackReplyOrigin, channel: id);
-    }
+    if (thread == null) return slackReplyEndpoint(id);
     return switch (SlackMessageTimestamp.parse(thread)) {
-      final ts? => RepliesInSlackConversation(
-        origin: slackReplyOrigin,
-        channel: id,
-        thread: ts,
-      ),
+      final ts? => slackReplyEndpoint(id, thread: ts),
       null => null,
     };
   }

@@ -25,5 +25,6 @@ export 'src/slack_event_translator.dart';
 export 'src/records_and_finds_slack_nodes.dart';
 export 'src/slack_receiver.dart';
 export 'src/slack_reply.dart';
+export 'src/slack_reply_endpoint.dart';
 export 'src/slack_reply_requests.dart';
 export 'src/turn_event.dart';
